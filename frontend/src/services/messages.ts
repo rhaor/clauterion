@@ -30,6 +30,10 @@ export function listenToMessages(
           role: data.role ?? 'user',
           authorId: data.authorId ?? '',
           createdAt: data.createdAt?.toDate?.(),
+          discoverVariant: data.discoverVariant,
+          discoverQueryNumber: data.discoverQueryNumber,
+          discoverDimension: data.discoverDimension,
+          discoverPairId: data.discoverPairId,
         }
       })
       onUpdate(messages)
@@ -55,14 +59,38 @@ export async function addUserMessage(topicId: string, params: { content: string;
   })
 }
 
-type SendToClaudeResponse = {
-  messageId: string
-  content: string
-}
+type SendToClaudeResponse =
+  | {
+      messageId: string
+      content: string
+    }
+  | {
+      discoverMode: true
+      queryNumber: number
+      dimension: string
+      responses: Array<{
+        messageId: string
+        content: string
+        variant: 'a' | 'b'
+      }>
+    }
 
 export async function requestClaudeReply(input: { topicId: string; content: string }) {
   const callable = httpsCallable(functionsClient, 'createAssistantMessage')
   const result = await callable(input)
   return result.data as SendToClaudeResponse
+}
+
+type GenerateSuggestionsResponse = {
+  suggestions: string[]
+}
+
+export async function generateSuggestions(input: {
+  topicId: string
+  selectedMessageId: string
+}) {
+  const callable = httpsCallable(functionsClient, 'generateSuggestions')
+  const result = await callable(input)
+  return result.data as GenerateSuggestionsResponse
 }
 
