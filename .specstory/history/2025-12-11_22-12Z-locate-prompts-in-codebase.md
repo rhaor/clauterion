@@ -12715,3 +12715,317 @@ Status: **completed**
 
 ---
 
+
+
+---
+
+
+Checking the functions directory structure and searching the frontend for prompts:
+
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="list_dir_v2">
+<details>
+<summary>Tool use: **list_dir_v2**</summary>
+
+
+Parameters:
+
+```json
+{
+  "targetDirectory": "/Users/reb/clauterion/functions"
+}
+```
+Result:
+
+```json
+{
+  "directoryTreeRoot": {
+    "absPath": "/Users/reb/clauterion/functions",
+    "childrenDirs": [
+      {
+        "absPath": "/Users/reb/clauterion/functions/lib",
+        "childrenDirs": [
+          {
+            "absPath": "/Users/reb/clauterion/functions/lib/schemas",
+            "childrenFiles": [
+              {
+                "name": "message.js"
+              }
+            ],
+            "childrenWereProcessed": true
+          }
+        ],
+        "childrenFiles": [
+          {
+            "name": "firebase.js"
+          },
+          {
+            "name": "index.js"
+          }
+        ],
+        "childrenWereProcessed": true
+      },
+      {
+        "absPath": "/Users/reb/clauterion/functions/src",
+        "childrenDirs": [
+          {
+            "absPath": "/Users/reb/clauterion/functions/src/schemas",
+            "childrenFiles": [
+              {
+                "name": "message.ts"
+              }
+            ],
+            "childrenWereProcessed": true
+          }
+        ],
+        "childrenFiles": [
+          {
+            "name": "firebase.ts"
+          },
+          {
+            "name": "index.ts"
+          }
+        ],
+        "childrenWereProcessed": true
+      }
+    ],
+    "childrenFiles": [
+      {
+        "name": ".gitignore"
+      },
+      {
+        "name": "package-lock.json"
+      },
+      {
+        "name": "package.json"
+      },
+      {
+        "name": "tsconfig.json"
+      }
+    ],
+    "childrenWereProcessed": true
+  }
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="ripgrep_raw_search">
+<details>
+<summary>Tool use: **ripgrep_raw_search**</summary>
+
+
+Parameters:
+
+```json
+{
+  "pattern": "prompt|system.*message|You are",
+  "path": "/Users/reb/clauterion/frontend",
+  "caseInsensitive": true
+}
+```
+Result:
+
+```json
+{
+  "success": {
+    "pattern": "prompt|system.*message|You are",
+    "path": "/Users/reb/clauterion/frontend",
+    "outputMode": "content",
+    "workspaceResults": {
+      "/Users/reb/clauterion": {
+        "content": {
+          "matches": [
+            {
+              "file": "frontend/src/pages/TopicDetail.tsx",
+              "matches": [
+                {
+                  "lineNumber": 219,
+                  "content": "      {/* Reflection Prompt 1: What else are you looking for? */}"
+                },
+                {
+                  "lineNumber": 291,
+                  "content": "      {/* Reflection Prompt 2: How can you ask Claude to improve? */}"
+                },
+                {
+                  "lineNumber": 1348,
+                  "content": "              {/* Define stage: Evaluation and reflection prompts - only show if generated in Define stage */}"
+                }
+              ]
+            }
+          ],
+          "totalLines": 3,
+          "totalMatchedLines": 3
+        }
+      }
+    }
+  }
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+
+Checking for config files or other locations where prompts might be stored:
+
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="glob_file_search">
+<details>
+<summary>Tool use: **glob_file_search** • Searched codebase "undefined" • **1** result in **1** directory</summary>
+
+Directory: **undefined** (1 file)
+
+| File |
+|------|
+| `./.specstory/history/2025-12-11_22-12Z-locate-prompts-in-codebase.md` |
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="glob_file_search">
+<details>
+<summary>Tool use: **glob_file_search** • Searched codebase "undefined" • **8** results in **1** directory</summary>
+
+Directory: **undefined** (8 files)
+
+| File |
+|------|
+| `./frontend/vite.config.ts` |
+| `./functions/tsconfig.json` |
+| `./frontend/tailwind.config.js` |
+| `./frontend/postcss.config.js` |
+| `./frontend/tsconfig.node.json` |
+| `./frontend/tsconfig.json` |
+| `./frontend/tsconfig.app.json` |
+| `./frontend/eslint.config.js` |
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/reb/clauterion/frontend/src/pages/TopicDetail.tsx</summary>
+
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+
+Prompts are only in `functions/src/index.ts`. Here's what I found:
+
+1. **Source file**: `functions/src/index.ts` — contains all AI prompts:
+   - System prompts for `createAssistantMessage` (Discover, Define, Deploy)
+   - Variation prompts for Discover stage (factual accuracy, citing sources, etc.)
+   - `suggestionsPrompt` for `generateSuggestions`
+   - `suggestionsPrompt` for `generateDefineSuggestions`
+   - `feedbackPrompt` for `generateDeployFeedback`
+
+2. **Compiled output**: `functions/lib/index.js` — compiled JavaScript from the TypeScript source (not a separate source of prompts)
+
+3. **Frontend**: `frontend/src/pages/TopicDetail.tsx` has UI text like "What else are you looking for?" — these are UI labels, not AI prompts.
+
+All prompts are defined inline in `functions/src/index.ts`. There are no separate prompt files, config files, or other locations where prompts are stored.
+
+---
+
+_**User**_
+
+For all suggestion (Discover, Define, and the feedback in Deploy) prompts, can you add this content to guide the LLM in the prompt? I want each of them to contain almost of all this material, word-for-word initially. Then, you can clean up the language a little bit (but don't shorten it). The instructions to shorten it are to be included in the prompt, I'm not asking you to do them right now. 
+
+"""Consider these recommendations from the Anthropic AI fluency framework for evaluating AI outputs when giving suggestions. 
+Discernment: Your ability to critically evaluate what AI produces, how it produces it, and how it behaves. You need some domain expertise, and an understanding of how AI systems work and their typical shortcomings (rather than suggesting this, you could consider providing information about a possible shortcoming from the AI response). 
+Product Discernment: Evaluating the quality of AI outputs - For example: Is it factually accurate? Appropriate to audience and purpose? Coherent and well-structured? Meet the user's requirements? Adds value? 
+Process Discernment: Assessing how the AI approached the task - For example: Does it contain logical inconsistencies? Lapses in attention? Inappropriate steps? Getting stuck on one small detail? Getting trapped in circular reasoning? 
+Performance Discernment: Evaluating how the AI behaved during the interaction itself - For example: Is the communication style appropriate? Is the information at the right level? Is response to feedback appropriate? Is the interaction efficient? 
+Description: Don't just craft prompts. Explain tasks, ask questions, provide context, and guide the interaction. Build a shared thinking environment where both you and the AI can each do your best work. 
+Product Description: Clearly defining what you want the AI to create - For example: Clearly describe what you want. Include context, format, audience, style, or other constraints. Give the AI the information it needs to deliver what you're actually looking for, not just assuming what you want. 
+Process Description: Guiding how the AI approaches your request - For example: How can be more important than What. Provide training specific to your problem. Include specific data, key tasks, preferred order, and so on. 
+Performance Description: Defining how you want the AI to behave during your collaboration. - For example: Know that AI tools are interactive systems that can behave differently in different contexts. You need to explain how you want the AI to behave to get the best results.
+
+However, don't use the discernment and description language, as users may be unfamiliar. Also don't try to say too much, this should be brief. Consider using 1-2 key ideas. Use this information to create helpful and encouraging suggestions for the user to follow-up with the model - in a way that is relevant to their learning goals, grounded in these best practices, extends their thinking, and most importantly, improves their skills of discernment and description. You may want to evaluate the AI response provided yourself to see where it can be improved (so think beyond. but also consider their evaluation criteria). We want to make sure cognitive load is manageable."""
+
+---
+
+_**Agent (model default, mode Agent)**_
+
+
+
+---
+
+
+Reviewing the current prompts, then adding the provided content to all suggestion prompts (Discover, Define, and Deploy feedback).
+
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/reb/clauterion/functions/src/index.ts</summary>
+
+</details>
+</tool-use>
+
+---
+
+
+
+---
+
+
+Updating all three suggestion prompts (Discover, Define, and Deploy feedback) to include the provided content, word-for-word initially, then cleaning up the language slightly.
+
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="edit_file_v2">
+<details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+
+Parameters:
+
+```json
+{
+  "relativeWorkspacePath": "/Users/reb/clauterion/functions/src/index.ts"
+}
+```
+Additional data:
+
+```json
+{
+  "codeblockId": "380e69ea-14e8-46b9-8926-5d119a082f60"
+}
+```
+Status: **loading**
+
+
+</details>
+</tool-use>
+
+---
+

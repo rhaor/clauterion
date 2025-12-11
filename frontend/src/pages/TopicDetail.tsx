@@ -504,7 +504,27 @@ export function TopicDetailPage() {
         return next
       })
       try {
-        const result = await generateSuggestions({ topicId, selectedMessageId })
+        // Get evaluations for this pair if they exist
+        const pairEvaluations = criteria
+          ?.filter((c: Criteria) => c.topicIds.includes(topicId ?? ''))
+          .map((c) => {
+            const evalKey = `${pairId}-${c.id}`
+            const evaluation = discoverEvaluations.get(evalKey)
+            return evaluation
+              ? {
+                  criteriaId: c.id,
+                  criteriaTitle: c.title,
+                  value: evaluation.value,
+                }
+              : null
+          })
+          .filter((ev): ev is NonNullable<typeof ev> => ev !== null) ?? []
+
+        const result = await generateSuggestions({
+          topicId,
+          selectedMessageId,
+          evaluations: pairEvaluations.length > 0 ? pairEvaluations : undefined,
+        })
         setDiscoverSuggestions((prev) => {
           const next = new Map(prev)
           next.set(pairId, result.suggestions)

@@ -101,7 +101,7 @@ export const createAssistantMessage = onCall(
           `The user is currently learning about: ${topicTitle}`,
         ]
         if (topicDescription) {
-          baseSystemPromptParts.push(`Their learning goals for this topic are: ${topicDescription}`)
+          baseSystemPromptParts.push(`Their learning goals and reflections for this topic are: ${topicDescription}`)
         }
         const baseSystemPrompt = baseSystemPromptParts.join('\n\n')
 
@@ -110,19 +110,19 @@ export const createAssistantMessage = onCall(
           const prompts: Record<string, Record<'a' | 'b', string>> = {
             'factual accuracy': {
               a: 'Provide a response that prioritizes factual accuracy above all else. Be precise, cite specific facts, and avoid speculation. If you are uncertain about any detail, clearly state that uncertainty.',
-              b: 'Provide a response that balances factual accuracy with practical understanding. You may use approximations or general principles when exact facts are less critical to the user\'s learning goals.',
+              b: 'Provide a response that may have some factual inaccuracies and uses approximations or generalizations to address their query. If you are uncertain about something, do not state your uncertainties, and express a specific opinion.',
             },
             'citing sources': {
-              a: 'Provide a response that includes explicit citations and references. Mention specific sources, studies, or authorities where relevant. Format citations clearly (e.g., "According to [source]..." or "Research shows...").',
+              a: 'Provide a response that includes explicit in-line citations and references. Mention specific sources, studies, or authorities where relevant. Format citations clearly (e.g., "According to [source]..." or "Research shows...").',
               b: 'Provide a response that focuses on the content itself without explicit citations. Draw on knowledge but present it as integrated understanding rather than citing specific sources.',
             },
             'appropriateness to prompt': {
               a: 'Provide a response that directly addresses the user\'s prompt with focused, targeted information. Stay strictly on-topic and avoid tangents.',
-              b: 'Provide a response that addresses the prompt but also includes relevant context, related concepts, or broader implications that might enhance understanding.',
+              b: 'Provide a response that does not directly address the user\'s prompt, but instead includes relevant context, related concepts, or broader implications that might enhance understanding.',
             },
             'communication style': {
-              a: 'Provide a response that is formal, structured, and academic in tone. Use precise terminology and organized presentation.',
-              b: 'Provide a response that is conversational, accessible, and engaging. Use everyday language and a friendly, approachable tone.',
+              a: 'Provide a response that is formal, structured, and academic in tone. Use precise terminology and organized presentation. Do not use emojis.',
+              b: 'Provide a response that is conversational, accessible, and engaging. Use everyday language and a friendly, approachable tone. You may use emojis if it seems relevant.',
             },
           }
           return prompts[variationDimension]?.[variant] ?? 'Provide a helpful response.'
@@ -354,6 +354,15 @@ export const createAssistantMessage = onCall(
 const generateSuggestionsSchema = z.object({
   topicId: z.string().min(1, 'topicId is required'),
   selectedMessageId: z.string().min(1, 'selectedMessageId is required'),
+  evaluations: z
+    .array(
+      z.object({
+        criteriaId: z.string(),
+        criteriaTitle: z.string(),
+        value: z.enum(['meh', 'okay', 'good']),
+      }),
+    )
+    .optional(),
 })
 
 export const generateSuggestions = onCall(
@@ -375,7 +384,7 @@ export const generateSuggestions = onCall(
         throw new HttpsError('invalid-argument', parsed.error.message)
       }
 
-      const { topicId, selectedMessageId } = parsed.data
+      const { topicId, selectedMessageId, evaluations } = parsed.data
 
       const topicRef = db.collection('topics').doc(topicId)
       const topicSnapshot = await topicRef.get()
@@ -411,16 +420,50 @@ export const generateSuggestions = onCall(
         .filter((msg) => typeof msg.content === 'string' && typeof msg.role === 'string')
         .slice(-5) // Last 5 messages for context
 
+      // Build evaluation context if provided
+      let evaluationContext = ''
+      if (evaluations && evaluations.length > 0) {
+        const evaluationText = evaluations
+          .map((e) => {
+            const rating = e.value === 'good' ? 'good' : e.value === 'okay' ? 'okay' : 'needs improvement'
+            return `- "${e.criteriaTitle}": ${rating}`
+          })
+          .join('\n')
+        evaluationContext = `\n\nThe user has evaluated this response against their criteria:\n${evaluationText}\n\nConsider these evaluations when generating suggestions - namely, consider suggesting follow-up questions or prompts that address areas they rated as meh or okay.`
+      }
+
       // Build prompt for suggestions
       const suggestionsPrompt = `You are helping a user learn about "${topicTitle}".${topicDescription ? ` Their learning goals are: ${topicDescription}` : ''}
 
 The user just selected this response from Claude:
-"${selectedMessage?.content ?? ''}"
+"${selectedMessage?.content ?? ''}"${evaluationContext}
 
-Based on this selected response and the user's learning goals, generate exactly 3 concise follow-up question suggestions that would help them:
+Consider these recommendations from the Anthropic AI fluency framework for evaluating AI outputs when giving suggestions. 
+
+Critical Evaluation: Your ability to critically evaluate what AI produces, how it produces it, and how it behaves. You need some domain expertise, and an understanding of how AI systems work and their typical shortcomings (rather than suggesting this, you could consider providing information about a possible shortcoming from the AI response). 
+
+Product Evaluation: Evaluating the quality of AI outputs - For example: Is it factually accurate? Appropriate to audience and purpose? Coherent and well-structured? Meet the user's requirements? Adds value? 
+
+Process Evaluation: Assessing how the AI approached the task - For example: Does it contain logical inconsistencies? Lapses in attention? Inappropriate steps? Getting stuck on one small detail? Getting trapped in circular reasoning? 
+
+Performance Evaluation: Evaluating how the AI behaved during the interaction itself - For example: Is the communication style appropriate? Is the information at the right level? Is response to feedback appropriate? Is the interaction efficient? 
+
+Effective Guidance: Don't just craft prompts. Explain tasks, ask questions, provide context, and guide the interaction. Build a shared thinking environment where both you and the AI can each do your best work. 
+
+Product Guidance: Clearly defining what you want the AI to create - For example: Clearly describe what you want. Include context, format, audience, style, or other constraints. Give the AI the information it needs to deliver what you're actually looking for, not just assuming what you want. 
+
+Process Guidance: Guiding how the AI approaches your request - For example: How can be more important than What. Provide training specific to your problem. Include specific data, key tasks, preferred order, and so on. 
+
+Performance Guidance: Defining how you want the AI to behave during your collaboration. - For example: Know that AI tools are interactive systems that can behave differently in different contexts. You need to explain how you want the AI to behave to get the best results.
+
+However, don't use the technical evaluation and guidance language when communicating with users, as they may be unfamiliar with these terms. Also don't try to say too much, this should be brief. Consider using 1-2 key ideas. Use this information to create helpful and encouraging suggestions for the user to follow-up with the model - in a way that is relevant to their learning goals, grounded in these best practices, extends their thinking, and most importantly, improves their skills of critical evaluation and effective guidance. You may want to evaluate the AI response provided yourself to see where it can be improved (so think beyond what the user evaluated, but also consider their evaluation criteria). We want to make sure cognitive load is manageable.
+
+Based on this selected response${evaluations && evaluations.length > 0 ? ', the user\'s evaluations' : ''}, and the user's learning goals, generate exactly 3 concise follow-up question suggestions that would help them:
 1. Learn more about the topic
 2. Refine their understanding
-3. Explore related aspects
+3. Explore related aspects${evaluations && evaluations.length > 0 ? '\n4. Address areas that need improvement based on their evaluations' : ''}
+
+Each suggestion should be relevant to their learning goals, grounded in these best practices, extend their thinking, and help them improve their ability to evaluate and guide AI interactions. Keep suggestions focused and manageable.
 
 Return ONLY a JSON array of exactly 3 strings, no other text. Format: ["suggestion 1", "suggestion 2", "suggestion 3"]`
 
@@ -484,7 +527,7 @@ Return ONLY a JSON array of exactly 3 strings, no other text. Format: ["suggesti
         logger.error('Failed to parse suggestions JSON', { suggestionsText, parseError })
         // Fallback: return generic suggestions
         suggestions = [
-          'Can you tell me more about this?',
+          '[Fallback] Can you tell me more about this?',
           'How does this relate to my goals?',
           'What are some practical applications?',
         ]
@@ -588,6 +631,26 @@ The user received this response from Claude:
 They evaluated this response against their criteria:
 ${evaluationSummary}
 
+Consider these recommendations from the Anthropic AI fluency framework for evaluating AI outputs when giving suggestions. 
+
+Critical Evaluation: Your ability to critically evaluate what AI produces, how it produces it, and how it behaves. You need some domain expertise, and an understanding of how AI systems work and their typical shortcomings (rather than suggesting this, you could consider providing information about a possible shortcoming from the AI response). 
+
+Product Evaluation: Evaluating the quality of AI outputs - For example: Is it factually accurate? Appropriate to audience and purpose? Coherent and well-structured? Meet the user's requirements? Adds value? 
+
+Process Evaluation: Assessing how the AI approached the task - For example: Does it contain logical inconsistencies? Lapses in attention? Inappropriate steps? Getting stuck on one small detail? Getting trapped in circular reasoning? 
+
+Performance Evaluation: Evaluating how the AI behaved during the interaction itself - For example: Is the communication style appropriate? Is the information at the right level? Is response to feedback appropriate? Is the interaction efficient? 
+
+Effective Guidance: Don't just craft prompts. Explain tasks, ask questions, provide context, and guide the interaction. Build a shared thinking environment where both you and the AI can each do your best work. 
+
+Product Guidance: Clearly defining what you want the AI to create - For example: Clearly describe what you want. Include context, format, audience, style, or other constraints. Give the AI the information it needs to deliver what you're actually looking for, not just assuming what you want. 
+
+Process Guidance: Guiding how the AI approaches your request - For example: How can be more important than What. Provide training specific to your problem. Include specific data, key tasks, preferred order, and so on. 
+
+Performance Guidance: Defining how you want the AI to behave during your collaboration. - For example: Know that AI tools are interactive systems that can behave differently in different contexts. You need to explain how you want the AI to behave to get the best results.
+
+However, don't use the technical evaluation and guidance language when communicating with users, as they may be unfamiliar with these terms. Also don't try to say too much, this should be brief. Consider using 1-2 key ideas. Use this information to create helpful and encouraging suggestions for the user to follow-up with the model - in a way that is relevant to their learning goals, grounded in these best practices, extends their thinking, and most importantly, improves their skills of critical evaluation and effective guidance. You may want to evaluate the AI response provided yourself to see where it can be improved (so think beyond what the user already evaluated, but also consider their evaluation criteria). We want to make sure cognitive load is manageable.
+
 Based on these evaluations and the user's learning goals, generate exactly 2 specific, actionable follow-up questions or prompts that would help them:
 1. Address areas where the response was rated "meh" or "okay"
 2. Build on areas that were rated "good" OR deepen their understanding in ways that align with their goals
@@ -597,8 +660,9 @@ Each suggestion should be:
 - Focused on improving or exploring the evaluated criteria
 - Tailored to help them achieve their learning goals
 - Written as a complete question or prompt they can use directly
+- Grounded in best practices for evaluating and guiding AI interactions
 
-For each suggestion, also provide a very short rationale (1-2 sentences) explaining why this suggestion is useful for their learning.
+For each suggestion, also provide a very short rationale (1-2 sentences) explaining why this suggestion is useful for their learning and how it helps them improve their skills in working with AI.
 
 Return ONLY a JSON array of exactly 2 objects, no other text. Format: [{"suggestion": "question or prompt here", "rationale": "brief explanation"}, {"suggestion": "question or prompt here", "rationale": "brief explanation"}]`
 
@@ -831,16 +895,37 @@ Turn 2:
 User: "${String(userMessage2.content || '').replace(/"/g, '\\"')}"
 Assistant: "${String(assistantMessage2.content || '').replace(/"/g, '\\"')}"
 
+Consider these recommendations from the Anthropic AI fluency framework for evaluating AI outputs when giving feedback. 
+
+Critical Evaluation: Your ability to critically evaluate what AI produces, how it produces it, and how it behaves. You need some domain expertise, and an understanding of how AI systems work and their typical shortcomings (rather than suggesting this, you could consider providing information about a possible shortcoming from the AI response). 
+
+Product Evaluation: Evaluating the quality of AI outputs - For example: Is it factually accurate? Appropriate to audience and purpose? Coherent and well-structured? Meet the user's requirements? Adds value? 
+
+Process Evaluation: Assessing how the AI approached the task - For example: Does it contain logical inconsistencies? Lapses in attention? Inappropriate steps? Getting stuck on one small detail? Getting trapped in circular reasoning? 
+
+Performance Evaluation: Evaluating how the AI behaved during the interaction itself - For example: Is the communication style appropriate? Is the information at the right level? Is response to feedback appropriate? Is the interaction efficient? 
+
+Effective Guidance: Don't just craft prompts. Explain tasks, ask questions, provide context, and guide the interaction. Build a shared thinking environment where both you and the AI can each do your best work. 
+
+Product Guidance: Clearly defining what you want the AI to create - For example: Clearly describe what you want. Include context, format, audience, style, or other constraints. Give the AI the information it needs to deliver what you're actually looking for, not just assuming what you want. 
+
+Process Guidance: Guiding how the AI approaches your request - For example: How can be more important than What. Provide training specific to your problem. Include specific data, key tasks, preferred order, and so on. 
+
+Performance Guidance: Defining how you want the AI to behave during your collaboration. - For example: Know that AI tools are interactive systems that can behave differently in different contexts. You need to explain how you want the AI to behave to get the best results.
+
+However, don't use the technical evaluation and guidance language when communicating with users, as they may be unfamiliar with these terms. Also don't try to say too much, this should be brief. Consider using 1-2 key ideas. Use this information to create helpful and encouraging feedback for the learner - in a way that is relevant to their learning goals, grounded in these best practices, extends their thinking, and most importantly, improves their skills of critical evaluation and effective guidance. You may want to evaluate the AI responses provided yourself to see where they can be improved (so think beyond what the learner evaluated, but also consider their evaluation criteria). We want to make sure cognitive load is manageable.
+
 Analyze this conversation and provide constructive feedback. Consider:
 1. Did the learner improve on something related to their criteria in the second turn?
 2. Was there evidence that they were thinking about one or more of their criteria when asking the follow-up?
 3. How was this reflected in the AI's response?
+4. How well did the learner evaluate the AI response and guide the interaction?
 
 Provide feedback that either:
-- CELEBRATES wins if their follow-up related to their criteria and showed improvement/engagement
-- OR provides HELPFUL GUIDANCE on how they could consider their criteria in relation to this conversation and the AI response
+- CELEBRATES wins if their follow-up related to their criteria and showed improvement/engagement in evaluating or guiding the AI
+- OR provides HELPFUL GUIDANCE on how they could better evaluate AI responses or craft prompts that guide the AI more effectively
 
-Be specific, encouraging, and actionable. Write 2-3 sentences that help them understand what they did well or how they could better align their questions with their learning criteria.`
+Be specific, encouraging, and actionable. Write 2-3 sentences that help them understand what they did well or how they could better evaluate AI outputs and guide their interactions with AI to improve their learning.`
 
       const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',

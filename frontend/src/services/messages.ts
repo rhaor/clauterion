@@ -90,6 +90,11 @@ type GenerateSuggestionsResponse = {
 export async function generateSuggestions(input: {
   topicId: string
   selectedMessageId: string
+  evaluations?: Array<{
+    criteriaId: string
+    criteriaTitle: string
+    value: 'meh' | 'okay' | 'good'
+  }>
 }) {
   const callable = httpsCallable(functionsClient, 'generateSuggestions')
   const result = await callable(input)
