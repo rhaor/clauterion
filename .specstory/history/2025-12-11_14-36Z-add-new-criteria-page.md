@@ -749,7 +749,13 @@ Additional data:
 
 ```json
 {
-  "codeblockId": "c42dec83-ce57-4924-b853-ff1951b07069"
+  "codeblockId": "c42dec83-ce57-4924-b853-ff1951b07069",
+  "reviewData": {
+    "status": "None",
+    "selectedOption": "accept",
+    "isShowingInput": false,
+    "firstTimeReviewMode": false
+  }
 }
 ```
 Status: **completed**
@@ -776,7 +782,13 @@ Additional data:
 
 ```json
 {
-  "codeblockId": "5a2ad824-ee72-4431-a0a8-24da306d6227"
+  "codeblockId": "5a2ad824-ee72-4431-a0a8-24da306d6227",
+  "reviewData": {
+    "status": "None",
+    "selectedOption": "accept",
+    "isShowingInput": false,
+    "firstTimeReviewMode": false
+  }
 }
 ```
 Status: **completed**
@@ -884,7 +896,13 @@ Additional data:
 
 ```json
 {
-  "codeblockId": "68ba417e-3cd4-46a8-8d8a-15ff299d2005"
+  "codeblockId": "68ba417e-3cd4-46a8-8d8a-15ff299d2005",
+  "reviewData": {
+    "status": "None",
+    "selectedOption": "accept",
+    "isShowingInput": false,
+    "firstTimeReviewMode": false
+  }
 }
 ```
 Status: **completed**
@@ -968,7 +986,13 @@ Additional data:
 
 ```json
 {
-  "codeblockId": "91242667-4994-4049-992a-264b70bed2a6"
+  "codeblockId": "91242667-4994-4049-992a-264b70bed2a6",
+  "reviewData": {
+    "status": "None",
+    "selectedOption": "accept",
+    "isShowingInput": false,
+    "firstTimeReviewMode": false
+  }
 }
 ```
 Status: **completed**
@@ -1052,7 +1076,13 @@ Additional data:
 
 ```json
 {
-  "codeblockId": "4bd76926-b4e9-4471-920a-a20781cecd73"
+  "codeblockId": "4bd76926-b4e9-4471-920a-a20781cecd73",
+  "reviewData": {
+    "status": "None",
+    "selectedOption": "accept",
+    "isShowingInput": false,
+    "firstTimeReviewMode": false
+  }
 }
 ```
 Status: **completed**
@@ -1137,7 +1167,13 @@ Additional data:
 
 ```json
 {
-  "codeblockId": "daff67f2-972f-4237-b72c-e202332e2dd0"
+  "codeblockId": "daff67f2-972f-4237-b72c-e202332e2dd0",
+  "reviewData": {
+    "status": "None",
+    "selectedOption": "accept",
+    "isShowingInput": false,
+    "firstTimeReviewMode": false
+  }
 }
 ```
 Status: **completed**
@@ -1188,6 +1224,4777 @@ Updated criteria link editing to auto-save on checkbox change.
 - State stays in sync with the immediate selection and backend updates.
 
 File updated: `frontend/src/pages/Criteria.tsx`.
+
+---
+
+_**User**_
+
+Add ability to delete a topic from the topics page (similar pattern to the criteria), without anything breaking. 
+
+---
+
+_**Agent (model default, mode Agent)**_
+
+
+
+---
+
+
+Reviewing the topics service and page to add topic deletion, ensuring it doesn't break anything.
+
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/reb/clauterion/frontend/src/services/topics.ts</summary>
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/reb/clauterion/frontend/src/pages/Topics.tsx</summary>
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="semantic_search_full">
+<details>
+<summary>Tool use: **semantic_search_full**</summary>
+
+
+Parameters:
+
+```json
+{
+  "query": "How are topics referenced or used in other parts of the application?",
+  "topK": 10,
+  "explanation": ""
+}
+```
+Result:
+
+```json
+{
+  "codeResults": [
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/pages/Topics.tsx",
+        "range": {
+          "startPosition": {},
+          "endPosition": {
+            "line": 166,
+            "column": 1
+          }
+        },
+        "contents": "import { useState } from 'react'\nimport type { FormEvent } from 'react'\nimport { useNavigate } from 'react-router-dom'\nimport { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'\nimport { useAuth } from '../features/auth/AuthProvider'\nimport { createTopic, fetchTopics } from '../services/topics'\nimport type { Topic } from '../types/topic'\n\nexport function TopicsPage() {\n  const { user } = useAuth()\n  const navigate = useNavigate()\n  const queryClient = useQueryClient()\n  const [title, setTitle] = useState('')\n  const [description, setDescription] = useState('')\n  const [titleError, setTitleError] = useState('')\n\n  const { data: topics, isLoading, error } = useQuery({\n    queryKey: ['topics', user?.uid],\n    queryFn: () =&gt; fetchTopics(user!.uid),\n    enabled: Boolean(user?.uid),\n  })\n\n  const createTopicMutation = useMutation({\n    mutationFn: () =&gt; createTopic(user!.uid, { title, description }),\n    onSuccess: (topicId) =&gt; {\n      setTitle('')\n      setDescription('')\n      setTitleError('')\n      queryClient.invalidateQueries({ queryKey: ['topics', user?.uid] })\n      navigate(&#96;/topics/${topicId}&#96;)\n    },\n  })\n\n  const handleSubmit = (event: FormEvent) =&gt; {\n    event.preventDefault()\n    \n    // Clear previous errors\n    setTitleError('')\n    \n    // Validate title\n    if (!title.trim()) {\n      setTitleError('Topic title is required')\n      return\n    }\n    \n    createTopicMutation.mutate()\n  }\n\n  return (\n    &lt;div className=\"grid gap-8 lg:grid-cols-2\"&gt;\n}",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "import { useState } from 'react'",
+            "lineNumber": 1
+          },
+          {
+            "text": "import type { FormEvent } from 'react'",
+            "lineNumber": 2
+          },
+          {
+            "text": "import { useNavigate } from 'react-router-dom'",
+            "lineNumber": 3
+          },
+          {
+            "text": "import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'",
+            "lineNumber": 4
+          },
+          {
+            "text": "import { useAuth } from '../features/auth/AuthProvider'",
+            "lineNumber": 5
+          },
+          {
+            "text": "import { createTopic, fetchTopics } from '../services/topics'",
+            "lineNumber": 6
+          },
+          {
+            "text": "import type { Topic } from '../types/topic'",
+            "lineNumber": 7
+          },
+          {
+            "lineNumber": 8
+          },
+          {
+            "text": "export function TopicsPage() {",
+            "lineNumber": 9,
+            "isSignature": true
+          },
+          {
+            "text": "  const { user } = useAuth()",
+            "lineNumber": 10
+          },
+          {
+            "text": "  const navigate = useNavigate()",
+            "lineNumber": 11
+          },
+          {
+            "text": "  const queryClient = useQueryClient()",
+            "lineNumber": 12
+          },
+          {
+            "text": "  const [title, setTitle] = useState('')",
+            "lineNumber": 13
+          },
+          {
+            "text": "  const [description, setDescription] = useState('')",
+            "lineNumber": 14
+          },
+          {
+            "text": "  const [titleError, setTitleError] = useState('')",
+            "lineNumber": 15
+          },
+          {
+            "lineNumber": 16
+          },
+          {
+            "text": "  const { data: topics, isLoading, error } = useQuery({",
+            "lineNumber": 17
+          },
+          {
+            "text": "    queryKey: ['topics', user?.uid],",
+            "lineNumber": 18
+          },
+          {
+            "text": "    queryFn: () =&gt; fetchTopics(user!.uid),",
+            "lineNumber": 19
+          },
+          {
+            "text": "    enabled: Boolean(user?.uid),",
+            "lineNumber": 20
+          },
+          {
+            "text": "  })",
+            "lineNumber": 21
+          },
+          {
+            "lineNumber": 22
+          },
+          {
+            "text": "  const createTopicMutation = useMutation({",
+            "lineNumber": 23
+          },
+          {
+            "text": "    mutationFn: () =&gt; createTopic(user!.uid, { title, description }),",
+            "lineNumber": 24
+          },
+          {
+            "text": "    onSuccess: (topicId) =&gt; {",
+            "lineNumber": 25
+          },
+          {
+            "text": "      setTitle('')",
+            "lineNumber": 26
+          },
+          {
+            "text": "      setDescription('')",
+            "lineNumber": 27
+          },
+          {
+            "text": "      setTitleError('')",
+            "lineNumber": 28
+          },
+          {
+            "text": "      queryClient.invalidateQueries({ queryKey: ['topics', user?.uid] })",
+            "lineNumber": 29
+          },
+          {
+            "text": "      navigate(&#96;/topics/${topicId}&#96;)",
+            "lineNumber": 30
+          },
+          {
+            "text": "    },",
+            "lineNumber": 31
+          },
+          {
+            "text": "  })",
+            "lineNumber": 32
+          },
+          {
+            "lineNumber": 33
+          },
+          {
+            "text": "  const handleSubmit = (event: FormEvent) =&gt; {",
+            "lineNumber": 34
+          },
+          {
+            "text": "    event.preventDefault()",
+            "lineNumber": 35
+          },
+          {
+            "text": "    ",
+            "lineNumber": 36
+          },
+          {
+            "text": "    // Clear previous errors",
+            "lineNumber": 37
+          },
+          {
+            "text": "    setTitleError('')",
+            "lineNumber": 38
+          },
+          {
+            "text": "    ",
+            "lineNumber": 39
+          },
+          {
+            "text": "    // Validate title",
+            "lineNumber": 40
+          },
+          {
+            "text": "    if (!title.trim()) {",
+            "lineNumber": 41
+          },
+          {
+            "text": "      setTitleError('Topic title is required')",
+            "lineNumber": 42
+          },
+          {
+            "text": "      return",
+            "lineNumber": 43
+          },
+          {
+            "text": "    }",
+            "lineNumber": 44
+          },
+          {
+            "text": "    ",
+            "lineNumber": 45
+          },
+          {
+            "text": "    createTopicMutation.mutate()",
+            "lineNumber": 46
+          },
+          {
+            "text": "  }",
+            "lineNumber": 47
+          },
+          {
+            "lineNumber": 48
+          },
+          {
+            "text": "  return (",
+            "lineNumber": 49
+          },
+          {
+            "text": "    &lt;div className=\"grid gap-8 lg:grid-cols-2\"&gt;",
+            "lineNumber": 50
+          },
+          {
+            "text": "}",
+            "lineNumber": 167,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.35559961199760437
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/pages/TopicDetail.tsx",
+        "range": {
+          "startPosition": {
+            "column": 52
+          },
+          "endPosition": {
+            "line": 275,
+            "column": 1
+          }
+        },
+        "contents": "import type { FormEvent } from 'react'\nimport { useMutation, useQuery } from '@tanstack/react-query'\nimport { useParams } from 'react-router-dom'\nimport { useAuth } from '../features/auth/AuthProvider'\nimport {\n  addUserMessage,\n  listenToMessages,\n  requestClaudeReply,\n} from '../services/messages'\nimport { fetchTopicById, updateTopicStage } from '../services/topics'\nimport type { Message } from '../types/message'\nimport type { Stage } from '../types/topic'\nimport { fetchCriteria } from '../services/criteria'\nimport type { Criteria } from '../types/criteria'\n\nexport function TopicDetailPage() {\n  const { topicId } = useParams&lt;{ topicId: string }&gt;()\n  const { user } = useAuth()\n  const [messages, setMessages] = useState&lt;Message[]&gt;([])\n  const [input, setInput] = useState('')\n  const [stage, setStage] = useState&lt;Stage | undefined&gt;(undefined)\n  const [messagesError, setMessagesError] = useState&lt;string | null&gt;(null)\n\n  useEffect(() =&gt; {\n    if (!topicId?.trim() || !user?.uid) return\n    setMessagesError(null)\n\n    const unsubscribe = listenToMessages(\n      topicId,\n      setMessages,\n      (error) =&gt; {\n        const message =\n          error instanceof Error\n            ? error.message\n            : 'Unable to load messages right now.'\n        setMessagesError(message)\n      },\n    )\n    return () =&gt; unsubscribe()\n  }, [topicId, user?.uid])\n\n  const {\n    data: topic,\n    isLoading: isTopicLoading,\n    error: topicError,\n  } = useQuery({\n    queryKey: ['topic', topicId],\n    queryFn: () =&gt; fetchTopicById(topicId!),\n    enabled: Boolean(topicId &amp;&amp; user?.uid),\n  })\n\n  const {\n    data: criteria,\n    isLoading: criteriaLoading,\n    error: criteriaError,\n  } = useQuery({\n    queryKey: ['criteria', user?.uid],\n    queryFn: () =&gt; fetchCriteria(user!.uid),\n    enabled: Boolean(user?.uid),\n  })\n\n  const sortedMessages = useMemo(\n    () =&gt; [...messages].sort((a, b) =&gt; (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0)),\n    [messages],\n  )\n\n  const sendMutation = useMutation\n\n}",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "import type { FormEvent } from 'react'",
+            "lineNumber": 2
+          },
+          {
+            "text": "import { useMutation, useQuery } from '@tanstack/react-query'",
+            "lineNumber": 3
+          },
+          {
+            "text": "import { useParams } from 'react-router-dom'",
+            "lineNumber": 4
+          },
+          {
+            "text": "import { useAuth } from '../features/auth/AuthProvider'",
+            "lineNumber": 5
+          },
+          {
+            "text": "import {",
+            "lineNumber": 6
+          },
+          {
+            "text": "  addUserMessage,",
+            "lineNumber": 7
+          },
+          {
+            "text": "  listenToMessages,",
+            "lineNumber": 8
+          },
+          {
+            "text": "  requestClaudeReply,",
+            "lineNumber": 9
+          },
+          {
+            "text": "} from '../services/messages'",
+            "lineNumber": 10
+          },
+          {
+            "text": "import { fetchTopicById, updateTopicStage } from '../services/topics'",
+            "lineNumber": 11
+          },
+          {
+            "text": "import type { Message } from '../types/message'",
+            "lineNumber": 12
+          },
+          {
+            "text": "import type { Stage } from '../types/topic'",
+            "lineNumber": 13
+          },
+          {
+            "text": "import { fetchCriteria } from '../services/criteria'",
+            "lineNumber": 14
+          },
+          {
+            "text": "import type { Criteria } from '../types/criteria'",
+            "lineNumber": 15
+          },
+          {
+            "lineNumber": 16
+          },
+          {
+            "text": "export function TopicDetailPage() {",
+            "lineNumber": 17,
+            "isSignature": true
+          },
+          {
+            "text": "  const { topicId } = useParams&lt;{ topicId: string }&gt;()",
+            "lineNumber": 18
+          },
+          {
+            "text": "  const { user } = useAuth()",
+            "lineNumber": 19
+          },
+          {
+            "text": "  const [messages, setMessages] = useState&lt;Message[]&gt;([])",
+            "lineNumber": 20
+          },
+          {
+            "text": "  const [input, setInput] = useState('')",
+            "lineNumber": 21
+          },
+          {
+            "text": "  const [stage, setStage] = useState&lt;Stage | undefined&gt;(undefined)",
+            "lineNumber": 22
+          },
+          {
+            "text": "  const [messagesError, setMessagesError] = useState&lt;string | null&gt;(null)",
+            "lineNumber": 23
+          },
+          {
+            "lineNumber": 24
+          },
+          {
+            "text": "  useEffect(() =&gt; {",
+            "lineNumber": 25
+          },
+          {
+            "text": "    if (!topicId?.trim() || !user?.uid) return",
+            "lineNumber": 26
+          },
+          {
+            "text": "    setMessagesError(null)",
+            "lineNumber": 27
+          },
+          {
+            "lineNumber": 28
+          },
+          {
+            "text": "    const unsubscribe = listenToMessages(",
+            "lineNumber": 29
+          },
+          {
+            "text": "      topicId,",
+            "lineNumber": 30
+          },
+          {
+            "text": "      setMessages,",
+            "lineNumber": 31
+          },
+          {
+            "text": "      (error) =&gt; {",
+            "lineNumber": 32
+          },
+          {
+            "text": "        const message =",
+            "lineNumber": 33
+          },
+          {
+            "text": "          error instanceof Error",
+            "lineNumber": 34
+          },
+          {
+            "text": "            ? error.message",
+            "lineNumber": 35
+          },
+          {
+            "text": "            : 'Unable to load messages right now.'",
+            "lineNumber": 36
+          },
+          {
+            "text": "        setMessagesError(message)",
+            "lineNumber": 37
+          },
+          {
+            "text": "      },",
+            "lineNumber": 38
+          },
+          {
+            "text": "    )",
+            "lineNumber": 39
+          },
+          {
+            "text": "    return () =&gt; unsubscribe()",
+            "lineNumber": 40
+          },
+          {
+            "text": "  }, [topicId, user?.uid])",
+            "lineNumber": 41
+          },
+          {
+            "lineNumber": 42
+          },
+          {
+            "text": "  const {",
+            "lineNumber": 43
+          },
+          {
+            "text": "    data: topic,",
+            "lineNumber": 44
+          },
+          {
+            "text": "    isLoading: isTopicLoading,",
+            "lineNumber": 45
+          },
+          {
+            "text": "    error: topicError,",
+            "lineNumber": 46
+          },
+          {
+            "text": "  } = useQuery({",
+            "lineNumber": 47
+          },
+          {
+            "text": "    queryKey: ['topic', topicId],",
+            "lineNumber": 48
+          },
+          {
+            "text": "    queryFn: () =&gt; fetchTopicById(topicId!),",
+            "lineNumber": 49
+          },
+          {
+            "text": "    enabled: Boolean(topicId &amp;&amp; user?.uid),",
+            "lineNumber": 50
+          },
+          {
+            "text": "  })",
+            "lineNumber": 51
+          },
+          {
+            "lineNumber": 52
+          },
+          {
+            "text": "  const {",
+            "lineNumber": 53
+          },
+          {
+            "text": "    data: criteria,",
+            "lineNumber": 54
+          },
+          {
+            "text": "    isLoading: criteriaLoading,",
+            "lineNumber": 55
+          },
+          {
+            "text": "    error: criteriaError,",
+            "lineNumber": 56
+          },
+          {
+            "text": "  } = useQuery({",
+            "lineNumber": 57
+          },
+          {
+            "text": "    queryKey: ['criteria', user?.uid],",
+            "lineNumber": 58
+          },
+          {
+            "text": "    queryFn: () =&gt; fetchCriteria(user!.uid),",
+            "lineNumber": 59
+          },
+          {
+            "text": "    enabled: Boolean(user?.uid),",
+            "lineNumber": 60
+          },
+          {
+            "text": "  })",
+            "lineNumber": 61
+          },
+          {
+            "lineNumber": 62
+          },
+          {
+            "text": "  const sortedMessages = useMemo(",
+            "lineNumber": 63
+          },
+          {
+            "text": "    () =&gt; [...messages].sort((a, b) =&gt; (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0)),",
+            "lineNumber": 64
+          },
+          {
+            "text": "    [messages],",
+            "lineNumber": 65
+          },
+          {
+            "text": "  )",
+            "lineNumber": 66
+          },
+          {
+            "lineNumber": 67
+          },
+          {
+            "text": "  const sendMutation = useMutation",
+            "lineNumber": 68
+          },
+          {
+            "lineNumber": 77
+          },
+          {
+            "text": "}",
+            "lineNumber": 276,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.33285629749298096
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/services/topics.ts",
+        "range": {
+          "startPosition": {},
+          "endPosition": {
+            "line": 42,
+            "column": 1
+          }
+        },
+        "contents": "import {\n  addDoc,\n  collection,\n  doc,\n  deleteDoc,\n  getDoc,\n  getDocs,\n  orderBy,\n  query,\n  serverTimestamp,\n  updateDoc,\n  where,\n} from 'firebase/firestore'\nimport { db } from '../lib/firebase'\nimport type { Stage, Topic } from '../types/topic'\n\nconst topicsCollection = collection(db, 'topics')\n\ntype CreateTopicInput = {\n  title: string\n  description?: string\n  stage?: Stage\n}\n\nexport async function fetchTopics(userId: string): Promise&lt;Topic[]&gt; {\n  const q = query\n\n}",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "import {",
+            "lineNumber": 1
+          },
+          {
+            "text": "  addDoc,",
+            "lineNumber": 2
+          },
+          {
+            "text": "  collection,",
+            "lineNumber": 3
+          },
+          {
+            "text": "  doc,",
+            "lineNumber": 4
+          },
+          {
+            "text": "  deleteDoc,",
+            "lineNumber": 5
+          },
+          {
+            "text": "  getDoc,",
+            "lineNumber": 6
+          },
+          {
+            "text": "  getDocs,",
+            "lineNumber": 7
+          },
+          {
+            "text": "  orderBy,",
+            "lineNumber": 8
+          },
+          {
+            "text": "  query,",
+            "lineNumber": 9
+          },
+          {
+            "text": "  serverTimestamp,",
+            "lineNumber": 10
+          },
+          {
+            "text": "  updateDoc,",
+            "lineNumber": 11
+          },
+          {
+            "text": "  where,",
+            "lineNumber": 12
+          },
+          {
+            "text": "} from 'firebase/firestore'",
+            "lineNumber": 13
+          },
+          {
+            "text": "import { db } from '../lib/firebase'",
+            "lineNumber": 14
+          },
+          {
+            "text": "import type { Stage, Topic } from '../types/topic'",
+            "lineNumber": 15
+          },
+          {
+            "lineNumber": 16
+          },
+          {
+            "text": "const topicsCollection = collection(db, 'topics')",
+            "lineNumber": 17
+          },
+          {
+            "lineNumber": 18
+          },
+          {
+            "text": "type CreateTopicInput = {",
+            "lineNumber": 19,
+            "isSignature": true
+          },
+          {
+            "text": "  title: string",
+            "lineNumber": 20
+          },
+          {
+            "text": "  description?: string",
+            "lineNumber": 21
+          },
+          {
+            "text": "  stage?: Stage",
+            "lineNumber": 22
+          },
+          {
+            "text": "}",
+            "lineNumber": 23,
+            "isSignature": true
+          },
+          {
+            "lineNumber": 24
+          },
+          {
+            "text": "export async function fetchTopics(userId: string): Promise&lt;Topic[]&gt; {",
+            "lineNumber": 25,
+            "isSignature": true
+          },
+          {
+            "text": "  const q = query",
+            "lineNumber": 26
+          },
+          {
+            "lineNumber": 30
+          },
+          {
+            "text": "}",
+            "lineNumber": 43,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.3287161588668823
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/services/topics.ts",
+        "range": {
+          "startPosition": {
+            "line": 22,
+            "column": 1
+          },
+          "endPosition": {
+            "line": 58,
+            "column": 1
+          }
+        },
+        "contents": "export async function fetchTopics(userId: string): Promise&lt;Topic[]&gt; {\n  const q = query(\n    topicsCollection,\n    where('ownerId', '==', userId),\n    orderBy('createdAt', 'desc'),\n  )\n  const snapshot = await getDocs(q)\n  return snapshot.docs.map((doc) =&gt; {\n    const data = doc.data()\n    return {\n      id: doc.id,\n      title: data.title ?? '',\n      description: data.description ?? '',\n      ownerId: data.ownerId ?? '',\n      stage: data.stage as Stage | undefined,\n      createdAt: data.createdAt?.toDate?.(),\n    }\n  })\n}\n\nexport async function createTopic(userId: string, input: CreateTopicInput) {\n  if (!input.title.trim()) {\n    throw new Error('Topic title is required')\n  }\n}",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "export async function fetchTopics(userId: string): Promise&lt;Topic[]&gt; {",
+            "lineNumber": 25,
+            "isSignature": true
+          },
+          {
+            "text": "  const q = query(",
+            "lineNumber": 26
+          },
+          {
+            "text": "    topicsCollection,",
+            "lineNumber": 27
+          },
+          {
+            "text": "    where('ownerId', '==', userId),",
+            "lineNumber": 28
+          },
+          {
+            "text": "    orderBy('createdAt', 'desc'),",
+            "lineNumber": 29
+          },
+          {
+            "text": "  )",
+            "lineNumber": 30
+          },
+          {
+            "text": "  const snapshot = await getDocs(q)",
+            "lineNumber": 31
+          },
+          {
+            "text": "  return snapshot.docs.map((doc) =&gt; {",
+            "lineNumber": 32
+          },
+          {
+            "text": "    const data = doc.data()",
+            "lineNumber": 33
+          },
+          {
+            "text": "    return {",
+            "lineNumber": 34
+          },
+          {
+            "text": "      id: doc.id,",
+            "lineNumber": 35
+          },
+          {
+            "text": "      title: data.title ?? '',",
+            "lineNumber": 36
+          },
+          {
+            "text": "      description: data.description ?? '',",
+            "lineNumber": 37
+          },
+          {
+            "text": "      ownerId: data.ownerId ?? '',",
+            "lineNumber": 38
+          },
+          {
+            "text": "      stage: data.stage as Stage | undefined,",
+            "lineNumber": 39
+          },
+          {
+            "text": "      createdAt: data.createdAt?.toDate?.(),",
+            "lineNumber": 40
+          },
+          {
+            "text": "    }",
+            "lineNumber": 41
+          },
+          {
+            "text": "  })",
+            "lineNumber": 42
+          },
+          {
+            "text": "}",
+            "lineNumber": 43,
+            "isSignature": true
+          },
+          {
+            "lineNumber": 44
+          },
+          {
+            "text": "export async function createTopic(userId: string, input: CreateTopicInput) {",
+            "lineNumber": 45,
+            "isSignature": true
+          },
+          {
+            "text": "  if (!input.title.trim()) {",
+            "lineNumber": 46
+          },
+          {
+            "text": "    throw new Error('Topic title is required')",
+            "lineNumber": 47
+          },
+          {
+            "text": "  }",
+            "lineNumber": 48
+          },
+          {
+            "text": "}",
+            "lineNumber": 59,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.3203907907009125
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/pages/Criteria.tsx",
+        "range": {
+          "startPosition": {
+            "column": 43
+          },
+          "endPosition": {
+            "line": 372,
+            "column": 1
+          }
+        },
+        "contents": "import type { FormEvent } from 'react'\nimport { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'\nimport { useAuth } from '../features/auth/AuthProvider'\nimport { fetchTopics } from '../services/topics'\nimport {\n  createCriteria,\n  fetchCriteria,\n  deleteCriteria,\n  updateCriteria,\n} from '../services/criteria'\nimport type { Topic } from '../types/topic'\nimport type { Criteria } from '../types/criteria'\n\nexport function CriteriaPage() {\n  const { user } = useAuth()\n  const queryClient = useQueryClient()\n\n  const [title, setTitle] = useState('')\n  const [titleError, setTitleError] = useState('')\n  const [selectedTopicIds, setSelectedTopicIds] = useState&lt;string[]&gt;([])\n  const [criteriaTopicSelections, setCriteriaTopicSelections] = useState&lt;\n    Record&lt;string, string[]&gt;\n  &gt;({})\n  const [criteriaEditOpen, setCriteriaEditOpen] = useState&lt;\n    Record&lt;string, boolean&gt;\n  &gt;({})\n\n  const {\n    data: topics,\n    isLoading: topicsLoading,\n    error: topicsError,\n  } = useQuery({\n    queryKey: ['topics', user?.uid],\n    queryFn: () =&gt; fetchTopics(user!.uid),\n    enabled: Boolean(user?.uid),\n  })\n\n  const {\n    data: criteria,\n    isLoading: criteriaLoading,\n    error: criteriaError,\n  } = useQuery({\n    queryKey: ['criteria', user?.uid],\n    queryFn: () =&gt; fetchCriteria(user!.uid),\n    enabled: Boolean(user?.uid),\n  })\n\n  const createCriteriaMutation = useMutation({\n    mutationFn: () =&gt;\n      createCriteria(user!.uid, {\n        title,\n        topicIds: selectedTopicIds,\n      }),\n    onSuccess: () =&gt; {\n      setTitle('')\n      setSelectedTopicIds([])\n      setTitleError('')\n      queryClient.invalidateQueries({ queryKey: ['criteria', user?.uid] })\n    },\n  })\n\n  const deleteCriteriaMutation = useMutation({\n    mutationFn: (criteriaId: string) =&gt; deleteCriteria(criteriaId),\n    onSuccess: () =&gt; {\n      queryClient.invalidateQueries({ queryKey: ['criteria', user?.uid] })\n    },\n  })\n\n  const updateCriteriaMutation = useMutation\n\n}",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "import type { FormEvent } from 'react'",
+            "lineNumber": 2
+          },
+          {
+            "text": "import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'",
+            "lineNumber": 3
+          },
+          {
+            "text": "import { useAuth } from '../features/auth/AuthProvider'",
+            "lineNumber": 4
+          },
+          {
+            "text": "import { fetchTopics } from '../services/topics'",
+            "lineNumber": 5
+          },
+          {
+            "text": "import {",
+            "lineNumber": 6
+          },
+          {
+            "text": "  createCriteria,",
+            "lineNumber": 7
+          },
+          {
+            "text": "  fetchCriteria,",
+            "lineNumber": 8
+          },
+          {
+            "text": "  deleteCriteria,",
+            "lineNumber": 9
+          },
+          {
+            "text": "  updateCriteria,",
+            "lineNumber": 10
+          },
+          {
+            "text": "} from '../services/criteria'",
+            "lineNumber": 11
+          },
+          {
+            "text": "import type { Topic } from '../types/topic'",
+            "lineNumber": 12
+          },
+          {
+            "text": "import type { Criteria } from '../types/criteria'",
+            "lineNumber": 13
+          },
+          {
+            "lineNumber": 14
+          },
+          {
+            "text": "export function CriteriaPage() {",
+            "lineNumber": 15,
+            "isSignature": true
+          },
+          {
+            "text": "  const { user } = useAuth()",
+            "lineNumber": 16
+          },
+          {
+            "text": "  const queryClient = useQueryClient()",
+            "lineNumber": 17
+          },
+          {
+            "lineNumber": 18
+          },
+          {
+            "text": "  const [title, setTitle] = useState('')",
+            "lineNumber": 19
+          },
+          {
+            "text": "  const [titleError, setTitleError] = useState('')",
+            "lineNumber": 20
+          },
+          {
+            "text": "  const [selectedTopicIds, setSelectedTopicIds] = useState&lt;string[]&gt;([])",
+            "lineNumber": 21
+          },
+          {
+            "text": "  const [criteriaTopicSelections, setCriteriaTopicSelections] = useState&lt;",
+            "lineNumber": 22
+          },
+          {
+            "text": "    Record&lt;string, string[]&gt;",
+            "lineNumber": 23
+          },
+          {
+            "text": "  &gt;({})",
+            "lineNumber": 24
+          },
+          {
+            "text": "  const [criteriaEditOpen, setCriteriaEditOpen] = useState&lt;",
+            "lineNumber": 25
+          },
+          {
+            "text": "    Record&lt;string, boolean&gt;",
+            "lineNumber": 26
+          },
+          {
+            "text": "  &gt;({})",
+            "lineNumber": 27
+          },
+          {
+            "lineNumber": 28
+          },
+          {
+            "text": "  const {",
+            "lineNumber": 29
+          },
+          {
+            "text": "    data: topics,",
+            "lineNumber": 30
+          },
+          {
+            "text": "    isLoading: topicsLoading,",
+            "lineNumber": 31
+          },
+          {
+            "text": "    error: topicsError,",
+            "lineNumber": 32
+          },
+          {
+            "text": "  } = useQuery({",
+            "lineNumber": 33
+          },
+          {
+            "text": "    queryKey: ['topics', user?.uid],",
+            "lineNumber": 34
+          },
+          {
+            "text": "    queryFn: () =&gt; fetchTopics(user!.uid),",
+            "lineNumber": 35
+          },
+          {
+            "text": "    enabled: Boolean(user?.uid),",
+            "lineNumber": 36
+          },
+          {
+            "text": "  })",
+            "lineNumber": 37
+          },
+          {
+            "lineNumber": 38
+          },
+          {
+            "text": "  const {",
+            "lineNumber": 39
+          },
+          {
+            "text": "    data: criteria,",
+            "lineNumber": 40
+          },
+          {
+            "text": "    isLoading: criteriaLoading,",
+            "lineNumber": 41
+          },
+          {
+            "text": "    error: criteriaError,",
+            "lineNumber": 42
+          },
+          {
+            "text": "  } = useQuery({",
+            "lineNumber": 43
+          },
+          {
+            "text": "    queryKey: ['criteria', user?.uid],",
+            "lineNumber": 44
+          },
+          {
+            "text": "    queryFn: () =&gt; fetchCriteria(user!.uid),",
+            "lineNumber": 45
+          },
+          {
+            "text": "    enabled: Boolean(user?.uid),",
+            "lineNumber": 46
+          },
+          {
+            "text": "  })",
+            "lineNumber": 47
+          },
+          {
+            "lineNumber": 48
+          },
+          {
+            "text": "  const createCriteriaMutation = useMutation({",
+            "lineNumber": 49
+          },
+          {
+            "text": "    mutationFn: () =&gt;",
+            "lineNumber": 50
+          },
+          {
+            "text": "      createCriteria(user!.uid, {",
+            "lineNumber": 51
+          },
+          {
+            "text": "        title,",
+            "lineNumber": 52
+          },
+          {
+            "text": "        topicIds: selectedTopicIds,",
+            "lineNumber": 53
+          },
+          {
+            "text": "      }),",
+            "lineNumber": 54
+          },
+          {
+            "text": "    onSuccess: () =&gt; {",
+            "lineNumber": 55
+          },
+          {
+            "text": "      setTitle('')",
+            "lineNumber": 56
+          },
+          {
+            "text": "      setSelectedTopicIds([])",
+            "lineNumber": 57
+          },
+          {
+            "text": "      setTitleError('')",
+            "lineNumber": 58
+          },
+          {
+            "text": "      queryClient.invalidateQueries({ queryKey: ['criteria', user?.uid] })",
+            "lineNumber": 59
+          },
+          {
+            "text": "    },",
+            "lineNumber": 60
+          },
+          {
+            "text": "  })",
+            "lineNumber": 61
+          },
+          {
+            "lineNumber": 62
+          },
+          {
+            "text": "  const deleteCriteriaMutation = useMutation({",
+            "lineNumber": 63
+          },
+          {
+            "text": "    mutationFn: (criteriaId: string) =&gt; deleteCriteria(criteriaId),",
+            "lineNumber": 64
+          },
+          {
+            "text": "    onSuccess: () =&gt; {",
+            "lineNumber": 65
+          },
+          {
+            "text": "      queryClient.invalidateQueries({ queryKey: ['criteria', user?.uid] })",
+            "lineNumber": 66
+          },
+          {
+            "text": "    },",
+            "lineNumber": 67
+          },
+          {
+            "text": "  })",
+            "lineNumber": 68
+          },
+          {
+            "lineNumber": 69
+          },
+          {
+            "text": "  const updateCriteriaMutation = useMutation",
+            "lineNumber": 70
+          },
+          {
+            "lineNumber": 81
+          },
+          {
+            "text": "}",
+            "lineNumber": 373,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.31118980050086975
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./functions/src/index.ts",
+        "range": {
+          "startPosition": {
+            "column": 64
+          },
+          "endPosition": {
+            "line": 140
+          }
+        },
+        "contents": "import { logger } from 'firebase-functions'\nimport { defineSecret } from 'firebase-functions/params'\nimport { FieldValue, getFirestore } from 'firebase-admin/firestore'\nimport { getFirebaseApp } from './firebase.js'\nimport { createMessageSchema } from './schemas/message.js'\n\nconst claudeApiKey = defineSecret('CLAUDE_API_KEY')\n\nconst app = getFirebaseApp()\nconst db = getFirestore(app)\n\nexport const createAssistantMessage = onCall(\n  {\n    cors: true,\n    region: 'us-central1',\n    secrets: [claudeApiKey],\n  },\n  async (request) =&gt; {\n    try {\n      const { auth, data } = request\n\n      if (!auth) {\n        throw new HttpsError('unauthenticated', 'Sign in to call this function')\n      }\n\n      const parsed = createMessageSchema.safeParse(data)\n      if (!parsed.success) {\n        throw new HttpsError('invalid-argument', parsed.error.message)\n      }\n\n      const { topicId, content } = parsed.data\n\n      const topicRef = db.collection('topics').doc(topicId)\n      const topicSnapshot = await topicRef.get()\n\n      if (!topicSnapshot.exists) {\n        throw new HttpsError('not-found', 'Topic not found')\n      }\n\n      if (topicSnapshot.data()?.ownerId !== auth.uid) {\n        throw new HttpsError('permission-denied', 'You do not own this topic')\n      }\n\n      // Collect prior thread for context (lightly capped to avoid token bloat).\n      const historySnapshot = await topicRef\n        .collection('messages')\n        .orderBy('createdAt', 'asc')\n        .limit(30)\n        .get()\n\n      const historyMessages =\n        historySnapshot.docs\n          .map((doc) =&gt; doc.data())\n          .filter((msg) =&gt; typeof msg.content === 'string' &amp;&amp; typeof msg.role === 'string')\n          .map((msg) =&gt; ({\n            role: msg.role === 'assistant' ? 'assistant' : 'user',\n            content: msg.content as string,\n          })) ?? []\n\n      const anthropicResponse = await fetch\n\n  }",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "import { logger } from 'firebase-functions'",
+            "lineNumber": 2
+          },
+          {
+            "text": "import { defineSecret } from 'firebase-functions/params'",
+            "lineNumber": 3
+          },
+          {
+            "text": "import { FieldValue, getFirestore } from 'firebase-admin/firestore'",
+            "lineNumber": 4
+          },
+          {
+            "text": "import { getFirebaseApp } from './firebase.js'",
+            "lineNumber": 5
+          },
+          {
+            "text": "import { createMessageSchema } from './schemas/message.js'",
+            "lineNumber": 6
+          },
+          {
+            "lineNumber": 7
+          },
+          {
+            "text": "const claudeApiKey = defineSecret('CLAUDE_API_KEY')",
+            "lineNumber": 8
+          },
+          {
+            "lineNumber": 9
+          },
+          {
+            "text": "const app = getFirebaseApp()",
+            "lineNumber": 10
+          },
+          {
+            "text": "const db = getFirestore(app)",
+            "lineNumber": 11
+          },
+          {
+            "lineNumber": 12
+          },
+          {
+            "text": "export const createAssistantMessage = onCall(",
+            "lineNumber": 13
+          },
+          {
+            "text": "  {",
+            "lineNumber": 14
+          },
+          {
+            "text": "    cors: true,",
+            "lineNumber": 15
+          },
+          {
+            "text": "    region: 'us-central1',",
+            "lineNumber": 16
+          },
+          {
+            "text": "    secrets: [claudeApiKey],",
+            "lineNumber": 17
+          },
+          {
+            "text": "  },",
+            "lineNumber": 18
+          },
+          {
+            "text": "  async (request) =&gt; {",
+            "lineNumber": 19
+          },
+          {
+            "text": "    try {",
+            "lineNumber": 20
+          },
+          {
+            "text": "      const { auth, data } = request",
+            "lineNumber": 21
+          },
+          {
+            "lineNumber": 22
+          },
+          {
+            "text": "      if (!auth) {",
+            "lineNumber": 23
+          },
+          {
+            "text": "        throw new HttpsError('unauthenticated', 'Sign in to call this function')",
+            "lineNumber": 24
+          },
+          {
+            "text": "      }",
+            "lineNumber": 25
+          },
+          {
+            "lineNumber": 26
+          },
+          {
+            "text": "      const parsed = createMessageSchema.safeParse(data)",
+            "lineNumber": 27
+          },
+          {
+            "text": "      if (!parsed.success) {",
+            "lineNumber": 28
+          },
+          {
+            "text": "        throw new HttpsError('invalid-argument', parsed.error.message)",
+            "lineNumber": 29
+          },
+          {
+            "text": "      }",
+            "lineNumber": 30
+          },
+          {
+            "lineNumber": 31
+          },
+          {
+            "text": "      const { topicId, content } = parsed.data",
+            "lineNumber": 32
+          },
+          {
+            "lineNumber": 33
+          },
+          {
+            "text": "      const topicRef = db.collection('topics').doc(topicId)",
+            "lineNumber": 34
+          },
+          {
+            "text": "      const topicSnapshot = await topicRef.get()",
+            "lineNumber": 35
+          },
+          {
+            "lineNumber": 36
+          },
+          {
+            "text": "      if (!topicSnapshot.exists) {",
+            "lineNumber": 37
+          },
+          {
+            "text": "        throw new HttpsError('not-found', 'Topic not found')",
+            "lineNumber": 38
+          },
+          {
+            "text": "      }",
+            "lineNumber": 39
+          },
+          {
+            "lineNumber": 40
+          },
+          {
+            "text": "      if (topicSnapshot.data()?.ownerId !== auth.uid) {",
+            "lineNumber": 41
+          },
+          {
+            "text": "        throw new HttpsError('permission-denied', 'You do not own this topic')",
+            "lineNumber": 42
+          },
+          {
+            "text": "      }",
+            "lineNumber": 43
+          },
+          {
+            "lineNumber": 44
+          },
+          {
+            "text": "      // Collect prior thread for context (lightly capped to avoid token bloat).",
+            "lineNumber": 45
+          },
+          {
+            "text": "      const historySnapshot = await topicRef",
+            "lineNumber": 46
+          },
+          {
+            "text": "        .collection('messages')",
+            "lineNumber": 47
+          },
+          {
+            "text": "        .orderBy('createdAt', 'asc')",
+            "lineNumber": 48
+          },
+          {
+            "text": "        .limit(30)",
+            "lineNumber": 49
+          },
+          {
+            "text": "        .get()",
+            "lineNumber": 50
+          },
+          {
+            "lineNumber": 51
+          },
+          {
+            "text": "      const historyMessages =",
+            "lineNumber": 52
+          },
+          {
+            "text": "        historySnapshot.docs",
+            "lineNumber": 53
+          },
+          {
+            "text": "          .map((doc) =&gt; doc.data())",
+            "lineNumber": 54
+          },
+          {
+            "text": "          .filter((msg) =&gt; typeof msg.content === 'string' &amp;&amp; typeof msg.role === 'string')",
+            "lineNumber": 55
+          },
+          {
+            "text": "          .map((msg) =&gt; ({",
+            "lineNumber": 56
+          },
+          {
+            "text": "            role: msg.role === 'assistant' ? 'assistant' : 'user',",
+            "lineNumber": 57
+          },
+          {
+            "text": "            content: msg.content as string,",
+            "lineNumber": 58
+          },
+          {
+            "text": "          })) ?? []",
+            "lineNumber": 59
+          },
+          {
+            "lineNumber": 60
+          },
+          {
+            "text": "      const anthropicResponse = await fetch",
+            "lineNumber": 61
+          },
+          {
+            "lineNumber": 80
+          },
+          {
+            "text": "  }",
+            "lineNumber": 140
+          }
+        ]
+      },
+      "score": 0.3100022077560425
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./functions/lib/index.js",
+        "range": {
+          "startPosition": {
+            "column": 65
+          },
+          "endPosition": {
+            "line": 115,
+            "column": 1
+          }
+        },
+        "contents": "import { logger } from 'firebase-functions';\nimport { defineSecret } from 'firebase-functions/params';\nimport { FieldValue, getFirestore } from 'firebase-admin/firestore';\nimport { getFirebaseApp } from './firebase.js';\nimport { createMessageSchema } from './schemas/message.js';\nconst claudeApiKey = defineSecret('CLAUDE_API_KEY');\nconst app = getFirebaseApp();\nconst db = getFirestore(app);\nexport const createAssistantMessage = onCall({\n    cors: true,\n    region: 'us-central1',\n    secrets: [claudeApiKey],\n}, async (request) =&gt; {\n    try {\n        const { auth, data } = request;\n        if (!auth) {\n            throw new HttpsError('unauthenticated', 'Sign in to call this function');\n        }\n        const parsed = createMessageSchema.safeParse(data);\n        if (!parsed.success) {\n            throw new HttpsError('invalid-argument', parsed.error.message);\n        }\n        const { topicId, content } = parsed.data;\n        const topicRef = db.collection('topics').doc(topicId);\n        const topicSnapshot = await topicRef.get();\n        if (!topicSnapshot.exists) {\n            throw new HttpsError('not-found', 'Topic not found');\n        }\n        if (topicSnapshot.data()?.ownerId !== auth.uid) {\n            throw new HttpsError('permission-denied', 'You do not own this topic');\n        }\n        // Collect prior thread for context (lightly capped to avoid token bloat).\n        const historySnapshot = await topicRef\n            .collection('messages')\n            .orderBy('createdAt', 'asc')\n            .limit(30)\n            .get();\n        const historyMessages = historySnapshot.docs\n            .map((doc) =&gt; doc.data())\n            .filter((msg) =&gt; typeof msg.content === 'string' &amp;&amp; typeof msg.role === 'string')\n            .map((msg) =&gt; ({\n            role: msg.role === 'assistant' ? 'assistant' : 'user',\n            content: msg.content,\n        })) ?? [];\n        const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {\n            method: 'POST',\n            headers:\n;\n};",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "import { logger } from 'firebase-functions';",
+            "lineNumber": 2
+          },
+          {
+            "text": "import { defineSecret } from 'firebase-functions/params';",
+            "lineNumber": 3
+          },
+          {
+            "text": "import { FieldValue, getFirestore } from 'firebase-admin/firestore';",
+            "lineNumber": 4
+          },
+          {
+            "text": "import { getFirebaseApp } from './firebase.js';",
+            "lineNumber": 5
+          },
+          {
+            "text": "import { createMessageSchema } from './schemas/message.js';",
+            "lineNumber": 6
+          },
+          {
+            "text": "const claudeApiKey = defineSecret('CLAUDE_API_KEY');",
+            "lineNumber": 7
+          },
+          {
+            "text": "const app = getFirebaseApp();",
+            "lineNumber": 8
+          },
+          {
+            "text": "const db = getFirestore(app);",
+            "lineNumber": 9
+          },
+          {
+            "text": "export const createAssistantMessage = onCall({",
+            "lineNumber": 10
+          },
+          {
+            "text": "    cors: true,",
+            "lineNumber": 11
+          },
+          {
+            "text": "    region: 'us-central1',",
+            "lineNumber": 12
+          },
+          {
+            "text": "    secrets: [claudeApiKey],",
+            "lineNumber": 13
+          },
+          {
+            "text": "}, async (request) =&gt; {",
+            "lineNumber": 14
+          },
+          {
+            "text": "    try {",
+            "lineNumber": 15
+          },
+          {
+            "text": "        const { auth, data } = request;",
+            "lineNumber": 16
+          },
+          {
+            "text": "        if (!auth) {",
+            "lineNumber": 17
+          },
+          {
+            "text": "            throw new HttpsError('unauthenticated', 'Sign in to call this function');",
+            "lineNumber": 18
+          },
+          {
+            "text": "        }",
+            "lineNumber": 19
+          },
+          {
+            "text": "        const parsed = createMessageSchema.safeParse(data);",
+            "lineNumber": 20
+          },
+          {
+            "text": "        if (!parsed.success) {",
+            "lineNumber": 21
+          },
+          {
+            "text": "            throw new HttpsError('invalid-argument', parsed.error.message);",
+            "lineNumber": 22
+          },
+          {
+            "text": "        }",
+            "lineNumber": 23
+          },
+          {
+            "text": "        const { topicId, content } = parsed.data;",
+            "lineNumber": 24
+          },
+          {
+            "text": "        const topicRef = db.collection('topics').doc(topicId);",
+            "lineNumber": 25
+          },
+          {
+            "text": "        const topicSnapshot = await topicRef.get();",
+            "lineNumber": 26
+          },
+          {
+            "text": "        if (!topicSnapshot.exists) {",
+            "lineNumber": 27
+          },
+          {
+            "text": "            throw new HttpsError('not-found', 'Topic not found');",
+            "lineNumber": 28
+          },
+          {
+            "text": "        }",
+            "lineNumber": 29
+          },
+          {
+            "text": "        if (topicSnapshot.data()?.ownerId !== auth.uid) {",
+            "lineNumber": 30
+          },
+          {
+            "text": "            throw new HttpsError('permission-denied', 'You do not own this topic');",
+            "lineNumber": 31
+          },
+          {
+            "text": "        }",
+            "lineNumber": 32
+          },
+          {
+            "text": "        // Collect prior thread for context (lightly capped to avoid token bloat).",
+            "lineNumber": 33
+          },
+          {
+            "text": "        const historySnapshot = await topicRef",
+            "lineNumber": 34
+          },
+          {
+            "text": "            .collection('messages')",
+            "lineNumber": 35
+          },
+          {
+            "text": "            .orderBy('createdAt', 'asc')",
+            "lineNumber": 36
+          },
+          {
+            "text": "            .limit(30)",
+            "lineNumber": 37
+          },
+          {
+            "text": "            .get();",
+            "lineNumber": 38
+          },
+          {
+            "text": "        const historyMessages = historySnapshot.docs",
+            "lineNumber": 39
+          },
+          {
+            "text": "            .map((doc) =&gt; doc.data())",
+            "lineNumber": 40
+          },
+          {
+            "text": "            .filter((msg) =&gt; typeof msg.content === 'string' &amp;&amp; typeof msg.role === 'string')",
+            "lineNumber": 41
+          },
+          {
+            "text": "            .map((msg) =&gt; ({",
+            "lineNumber": 42
+          },
+          {
+            "text": "            role: msg.role === 'assistant' ? 'assistant' : 'user',",
+            "lineNumber": 43
+          },
+          {
+            "text": "            content: msg.content,",
+            "lineNumber": 44
+          },
+          {
+            "text": "        })) ?? [];",
+            "lineNumber": 45
+          },
+          {
+            "text": "        const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {",
+            "lineNumber": 46
+          },
+          {
+            "text": "            method: 'POST',",
+            "lineNumber": 47
+          },
+          {
+            "text": "            headers:",
+            "lineNumber": 48
+          },
+          {
+            "text": ";",
+            "lineNumber": 65
+          },
+          {
+            "text": "};",
+            "lineNumber": 116
+          }
+        ]
+      },
+      "score": 0.3045569658279419
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/types/topic.ts",
+        "range": {
+          "startPosition": {
+            "column": 52
+          },
+          "endPosition": {
+            "line": 9,
+            "column": 1
+          }
+        },
+        "contents": "export type Topic = {\n  id: string\n  title: string\n  description?: string\n  ownerId: string\n  createdAt?: Date\n  stage?: Stage\n}",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "export type Topic = {",
+            "lineNumber": 3,
+            "isSignature": true
+          },
+          {
+            "text": "  id: string",
+            "lineNumber": 4
+          },
+          {
+            "text": "  title: string",
+            "lineNumber": 5
+          },
+          {
+            "text": "  description?: string",
+            "lineNumber": 6
+          },
+          {
+            "text": "  ownerId: string",
+            "lineNumber": 7
+          },
+          {
+            "text": "  createdAt?: Date",
+            "lineNumber": 8
+          },
+          {
+            "text": "  stage?: Stage",
+            "lineNumber": 9
+          },
+          {
+            "text": "}",
+            "lineNumber": 10,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.29086434841156006
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/services/topics.ts",
+        "range": {
+          "startPosition": {
+            "line": 42,
+            "column": 1
+          },
+          "endPosition": {
+            "line": 75,
+            "column": 1
+          }
+        },
+        "contents": "export async function createTopic(userId: string, input: CreateTopicInput) {\n  if (!input.title.trim()) {\n    throw new Error('Topic title is required')\n  }\n\n  const docRef = await addDoc(topicsCollection, {\n    title: input.title,\n    description: input.description ?? '',\n    ownerId: userId,\n    stage: input.stage ?? 'Discover',\n    createdAt: serverTimestamp(),\n  })\n  \n  return docRef.id\n}\n\nexport async function fetchTopicById(topicId: string): Promise&lt;Topic | null&gt; {\n  const topicRef = doc(topicsCollection, topicId)\n}",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "export async function createTopic(userId: string, input: CreateTopicInput) {",
+            "lineNumber": 45,
+            "isSignature": true
+          },
+          {
+            "text": "  if (!input.title.trim()) {",
+            "lineNumber": 46
+          },
+          {
+            "text": "    throw new Error('Topic title is required')",
+            "lineNumber": 47
+          },
+          {
+            "text": "  }",
+            "lineNumber": 48
+          },
+          {
+            "lineNumber": 49
+          },
+          {
+            "text": "  const docRef = await addDoc(topicsCollection, {",
+            "lineNumber": 50
+          },
+          {
+            "text": "    title: input.title,",
+            "lineNumber": 51
+          },
+          {
+            "text": "    description: input.description ?? '',",
+            "lineNumber": 52
+          },
+          {
+            "text": "    ownerId: userId,",
+            "lineNumber": 53
+          },
+          {
+            "text": "    stage: input.stage ?? 'Discover',",
+            "lineNumber": 54
+          },
+          {
+            "text": "    createdAt: serverTimestamp(),",
+            "lineNumber": 55
+          },
+          {
+            "text": "  })",
+            "lineNumber": 56
+          },
+          {
+            "text": "  ",
+            "lineNumber": 57
+          },
+          {
+            "text": "  return docRef.id",
+            "lineNumber": 58
+          },
+          {
+            "text": "}",
+            "lineNumber": 59,
+            "isSignature": true
+          },
+          {
+            "lineNumber": 60
+          },
+          {
+            "text": "export async function fetchTopicById(topicId: string): Promise&lt;Topic | null&gt; {",
+            "lineNumber": 61,
+            "isSignature": true
+          },
+          {
+            "text": "  const topicRef = doc(topicsCollection, topicId)",
+            "lineNumber": 62
+          },
+          {
+            "text": "}",
+            "lineNumber": 76,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.2861748933792114
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/pages/TopicDetail.tsx",
+        "range": {
+          "startPosition": {
+            "line": 16
+          },
+          "endPosition": {
+            "line": 275,
+            "column": 1
+          }
+        },
+        "contents": "export function TopicDetailPage() {\nconst {\n    data: criteria,\n    isLoading: criteriaLoading,\n    error: criteriaError,\n  } = \n\n  })\n\n  const sortedMessages = useMemo(\n    () =&gt; [...messages].sort((a, b) =&gt; (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0)),\n    [messages],\n  )\n\n  const sendMutation = useMutation({\n    mutationFn: async () =&gt; {\n      if (!user || !topicId) throw new Error('Missing topic or user')\n      const content = input.trim()\n      if (!content) throw new Error('Message content is required')\n      await addUserMessage(topicId, { content, authorId: user.uid })\n      setInput('')\n      await requestClaudeReply({ topicId, content })\n    },\n  })\n\n  const handleSubmit = (event: FormEvent) =&gt; {\n    event.preventDefault()\n    if (sendMutation.isPending) return\n    sendMutation.mutate()\n  }\n\n  if (!topicId) {\n    return &lt;p className=\"text-slate-600\"&gt;No topic selected.&lt;/p&gt;\n  }\n\n  const stageMutation = useMutation({\n    mutationFn: (nextStage: Stage) =&gt; updateTopicStage(topicId!, nextStage),\n  })\n\n  useEffect(() =&gt; {\n    if (topic) {\n      setStage(topic.stage ?? 'Discover')\n    }\n  }, [topic])\n\n  return (\n    &lt;div className=\"flex flex-col gap-6\"&gt;\n      &lt;div className=\"flex flex-col gap-2\"&gt;\n        &lt;p className=\"text-xs font-semibold uppercase tracking-wide text-slate-500\"&gt;\n          Topic\n        &lt;/p&gt;\n        &lt;h1 className=\"text-2xl font-semibold text-slate-900\"&gt;\n          {isTopicLoading ? 'Loading topic…' : topic?.title ?? 'Untitled topic'}\n        &lt;/h1&gt;\n        {topicError &amp;&amp; (\n          &lt;div className=\"rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700\"&gt;\n            Unable to load this topic. You may not have permission or the topic may not exist.\n          &lt;/div&gt;\n        )}\n      &lt;/div&gt;\n\n      &lt;div\n}",
+        "signatures": {
+          "ranges": [
+            {
+              "startPosition": {
+                "line": 18,
+                "column": 1
+              },
+              "endPosition": {
+                "line": 18,
+                "column": 8
+              }
+            },
+            {
+              "startPosition": {
+                "line": 18,
+                "column": 8
+              },
+              "endPosition": {
+                "line": 19,
+                "column": 3
+              }
+            }
+          ]
+        },
+        "detailedLines": [
+          {
+            "text": "export function TopicDetailPage() {",
+            "lineNumber": 17,
+            "isSignature": true
+          },
+          {
+            "text": "const {",
+            "lineNumber": 53
+          },
+          {
+            "text": "    data: criteria,",
+            "lineNumber": 54
+          },
+          {
+            "text": "    isLoading: criteriaLoading,",
+            "lineNumber": 55
+          },
+          {
+            "text": "    error: criteriaError,",
+            "lineNumber": 56
+          },
+          {
+            "text": "  } = ",
+            "lineNumber": 57
+          },
+          {
+            "lineNumber": 60
+          },
+          {
+            "text": "  })",
+            "lineNumber": 61
+          },
+          {
+            "lineNumber": 62
+          },
+          {
+            "text": "  const sortedMessages = useMemo(",
+            "lineNumber": 63
+          },
+          {
+            "text": "    () =&gt; [...messages].sort((a, b) =&gt; (a.createdAt?.getTime() ?? 0) - (b.createdAt?.getTime() ?? 0)),",
+            "lineNumber": 64
+          },
+          {
+            "text": "    [messages],",
+            "lineNumber": 65
+          },
+          {
+            "text": "  )",
+            "lineNumber": 66
+          },
+          {
+            "lineNumber": 67
+          },
+          {
+            "text": "  const sendMutation = useMutation({",
+            "lineNumber": 68
+          },
+          {
+            "text": "    mutationFn: async () =&gt; {",
+            "lineNumber": 69
+          },
+          {
+            "text": "      if (!user || !topicId) throw new Error('Missing topic or user')",
+            "lineNumber": 70
+          },
+          {
+            "text": "      const content = input.trim()",
+            "lineNumber": 71
+          },
+          {
+            "text": "      if (!content) throw new Error('Message content is required')",
+            "lineNumber": 72
+          },
+          {
+            "text": "      await addUserMessage(topicId, { content, authorId: user.uid })",
+            "lineNumber": 73
+          },
+          {
+            "text": "      setInput('')",
+            "lineNumber": 74
+          },
+          {
+            "text": "      await requestClaudeReply({ topicId, content })",
+            "lineNumber": 75
+          },
+          {
+            "text": "    },",
+            "lineNumber": 76
+          },
+          {
+            "text": "  })",
+            "lineNumber": 77
+          },
+          {
+            "lineNumber": 78
+          },
+          {
+            "text": "  const handleSubmit = (event: FormEvent) =&gt; {",
+            "lineNumber": 79
+          },
+          {
+            "text": "    event.preventDefault()",
+            "lineNumber": 80
+          },
+          {
+            "text": "    if (sendMutation.isPending) return",
+            "lineNumber": 81
+          },
+          {
+            "text": "    sendMutation.mutate()",
+            "lineNumber": 82
+          },
+          {
+            "text": "  }",
+            "lineNumber": 83
+          },
+          {
+            "lineNumber": 84
+          },
+          {
+            "text": "  if (!topicId) {",
+            "lineNumber": 85
+          },
+          {
+            "text": "    return &lt;p className=\"text-slate-600\"&gt;No topic selected.&lt;/p&gt;",
+            "lineNumber": 86
+          },
+          {
+            "text": "  }",
+            "lineNumber": 87
+          },
+          {
+            "lineNumber": 88
+          },
+          {
+            "text": "  const stageMutation = useMutation({",
+            "lineNumber": 89
+          },
+          {
+            "text": "    mutationFn: (nextStage: Stage) =&gt; updateTopicStage(topicId!, nextStage),",
+            "lineNumber": 90
+          },
+          {
+            "text": "  })",
+            "lineNumber": 91
+          },
+          {
+            "lineNumber": 92
+          },
+          {
+            "text": "  useEffect(() =&gt; {",
+            "lineNumber": 93
+          },
+          {
+            "text": "    if (topic) {",
+            "lineNumber": 94
+          },
+          {
+            "text": "      setStage(topic.stage ?? 'Discover')",
+            "lineNumber": 95
+          },
+          {
+            "text": "    }",
+            "lineNumber": 96
+          },
+          {
+            "text": "  }, [topic])",
+            "lineNumber": 97
+          },
+          {
+            "lineNumber": 98
+          },
+          {
+            "text": "  return (",
+            "lineNumber": 99
+          },
+          {
+            "text": "    &lt;div className=\"flex flex-col gap-6\"&gt;",
+            "lineNumber": 100
+          },
+          {
+            "text": "      &lt;div className=\"flex flex-col gap-2\"&gt;",
+            "lineNumber": 101
+          },
+          {
+            "text": "        &lt;p className=\"text-xs font-semibold uppercase tracking-wide text-slate-500\"&gt;",
+            "lineNumber": 102
+          },
+          {
+            "text": "          Topic",
+            "lineNumber": 103
+          },
+          {
+            "text": "        &lt;/p&gt;",
+            "lineNumber": 104
+          },
+          {
+            "text": "        &lt;h1 className=\"text-2xl font-semibold text-slate-900\"&gt;",
+            "lineNumber": 105
+          },
+          {
+            "text": "          {isTopicLoading ? 'Loading topic…' : topic?.title ?? 'Untitled topic'}",
+            "lineNumber": 106
+          },
+          {
+            "text": "        &lt;/h1&gt;",
+            "lineNumber": 107
+          },
+          {
+            "text": "        {topicError &amp;&amp; (",
+            "lineNumber": 108
+          },
+          {
+            "text": "          &lt;div className=\"rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700\"&gt;",
+            "lineNumber": 109
+          },
+          {
+            "text": "            Unable to load this topic. You may not have permission or the topic may not exist.",
+            "lineNumber": 110
+          },
+          {
+            "text": "          &lt;/div&gt;",
+            "lineNumber": 111
+          },
+          {
+            "text": "        )}",
+            "lineNumber": 112
+          },
+          {
+            "text": "      &lt;/div&gt;",
+            "lineNumber": 113
+          },
+          {
+            "lineNumber": 114
+          },
+          {
+            "text": "      &lt;div",
+            "lineNumber": 115
+          },
+          {
+            "text": "}",
+            "lineNumber": 276,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.2782464921474457
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/pages/Topics.tsx",
+        "range": {
+          "startPosition": {
+            "line": 8
+          },
+          "endPosition": {
+            "line": 166,
+            "column": 1
+          }
+        },
+        "contents": "export function TopicsPage() {\n\n\n  return (\n    &lt;div className=\"grid gap-8 lg:grid-cols-2\"&gt;\n      {/* Left Column - Existing Topics */}\n      &lt;div className=\"space-y-4\"&gt;\n        &lt;div className=\"space-y-2\"&gt;\n          &lt;h2 className=\"text-xl font-semibold text-slate-900\"&gt;\n            Your topics\n          &lt;/h2&gt;\n          &lt;p className=\"text-sm text-slate-600\"&gt;\n            Learn about a specific topic with Claude.\n          &lt;/p&gt;\n        &lt;/div&gt;\n        &lt;div className=\"space-y-4\"&gt;\n          {isLoading &amp;&amp; &lt;p className=\"text-slate-600\"&gt;Loading topics…&lt;/p&gt;}\n          {error &amp;&amp; (\n            &lt;p className=\"text-sm text-red-600\"&gt;\n              {error instanceof Error ? error.message : 'Unable to load topics'}\n            &lt;/p&gt;\n          )}\n          {!isLoading &amp;&amp; !topics?.length &amp;&amp; (\n            &lt;div className=\"rounded-xl border border-dashed border-slate-300 bg-sand-50 p-6 text-slate-600\"&gt;\n              No topics yet. Create one to begin.\n            &lt;/div&gt;\n          )}\n          {topics?.map((topic: Topic) =&gt; (\n            &lt;button\n              key={topic.id}\n              onClick={() =&gt; navigate(&#96;/topics/${topic.id}&#96;)}\n              className=\"flex w-full flex-col items-start gap-2 rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow\"\n            &gt;\n              &lt;div className=\"flex w-full items-center justify-between\"&gt;\n                &lt;h3 className=\"text-lg font-semibold text-slate-900\"&gt;\n                  {topic.title}\n                &lt;/h3&gt;\n              &lt;/div&gt;\n              {topic.description &amp;&amp; (\n                &lt;p className=\"text-sm text-slate-600\"&gt;{topic.description}&lt;/p&gt;\n              )}\n            &lt;/button&gt;\n          ))}\n        &lt;/div&gt;\n      &lt;/div&gt;\n\n      {/* Right Column - Create New Topic */}\n      &lt;div&gt;\n        &lt;form\n          onSubmit={handleSubmit}\n}",
+        "signatures": {
+          "ranges": [
+            {
+              "startPosition": {
+                "line": 9,
+                "column": 1
+              },
+              "endPosition": {
+                "line": 9,
+                "column": 8
+              }
+            },
+            {
+              "startPosition": {
+                "line": 9,
+                "column": 8
+              },
+              "endPosition": {
+                "line": 10,
+                "column": 3
+              }
+            }
+          ]
+        },
+        "detailedLines": [
+          {
+            "text": "export function TopicsPage() {",
+            "lineNumber": 9,
+            "isSignature": true
+          },
+          {
+            "lineNumber": 47
+          },
+          {
+            "lineNumber": 48
+          },
+          {
+            "text": "  return (",
+            "lineNumber": 49
+          },
+          {
+            "text": "    &lt;div className=\"grid gap-8 lg:grid-cols-2\"&gt;",
+            "lineNumber": 50
+          },
+          {
+            "text": "      {/* Left Column - Existing Topics */}",
+            "lineNumber": 51
+          },
+          {
+            "text": "      &lt;div className=\"space-y-4\"&gt;",
+            "lineNumber": 52
+          },
+          {
+            "text": "        &lt;div className=\"space-y-2\"&gt;",
+            "lineNumber": 53
+          },
+          {
+            "text": "          &lt;h2 className=\"text-xl font-semibold text-slate-900\"&gt;",
+            "lineNumber": 54
+          },
+          {
+            "text": "            Your topics",
+            "lineNumber": 55
+          },
+          {
+            "text": "          &lt;/h2&gt;",
+            "lineNumber": 56
+          },
+          {
+            "text": "          &lt;p className=\"text-sm text-slate-600\"&gt;",
+            "lineNumber": 57
+          },
+          {
+            "text": "            Learn about a specific topic with Claude.",
+            "lineNumber": 58
+          },
+          {
+            "text": "          &lt;/p&gt;",
+            "lineNumber": 59
+          },
+          {
+            "text": "        &lt;/div&gt;",
+            "lineNumber": 60
+          },
+          {
+            "text": "        &lt;div className=\"space-y-4\"&gt;",
+            "lineNumber": 61
+          },
+          {
+            "text": "          {isLoading &amp;&amp; &lt;p className=\"text-slate-600\"&gt;Loading topics…&lt;/p&gt;}",
+            "lineNumber": 62
+          },
+          {
+            "text": "          {error &amp;&amp; (",
+            "lineNumber": 63
+          },
+          {
+            "text": "            &lt;p className=\"text-sm text-red-600\"&gt;",
+            "lineNumber": 64
+          },
+          {
+            "text": "              {error instanceof Error ? error.message : 'Unable to load topics'}",
+            "lineNumber": 65
+          },
+          {
+            "text": "            &lt;/p&gt;",
+            "lineNumber": 66
+          },
+          {
+            "text": "          )}",
+            "lineNumber": 67
+          },
+          {
+            "text": "          {!isLoading &amp;&amp; !topics?.length &amp;&amp; (",
+            "lineNumber": 68
+          },
+          {
+            "text": "            &lt;div className=\"rounded-xl border border-dashed border-slate-300 bg-sand-50 p-6 text-slate-600\"&gt;",
+            "lineNumber": 69
+          },
+          {
+            "text": "              No topics yet. Create one to begin.",
+            "lineNumber": 70
+          },
+          {
+            "text": "            &lt;/div&gt;",
+            "lineNumber": 71
+          },
+          {
+            "text": "          )}",
+            "lineNumber": 72
+          },
+          {
+            "text": "          {topics?.map((topic: Topic) =&gt; (",
+            "lineNumber": 73
+          },
+          {
+            "text": "            &lt;button",
+            "lineNumber": 74
+          },
+          {
+            "text": "              key={topic.id}",
+            "lineNumber": 75
+          },
+          {
+            "text": "              onClick={() =&gt; navigate(&#96;/topics/${topic.id}&#96;)}",
+            "lineNumber": 76
+          },
+          {
+            "text": "              className=\"flex w-full flex-col items-start gap-2 rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow\"",
+            "lineNumber": 77
+          },
+          {
+            "text": "            &gt;",
+            "lineNumber": 78
+          },
+          {
+            "text": "              &lt;div className=\"flex w-full items-center justify-between\"&gt;",
+            "lineNumber": 79
+          },
+          {
+            "text": "                &lt;h3 className=\"text-lg font-semibold text-slate-900\"&gt;",
+            "lineNumber": 80
+          },
+          {
+            "text": "                  {topic.title}",
+            "lineNumber": 81
+          },
+          {
+            "text": "                &lt;/h3&gt;",
+            "lineNumber": 82
+          },
+          {
+            "text": "              &lt;/div&gt;",
+            "lineNumber": 83
+          },
+          {
+            "text": "              {topic.description &amp;&amp; (",
+            "lineNumber": 84
+          },
+          {
+            "text": "                &lt;p className=\"text-sm text-slate-600\"&gt;{topic.description}&lt;/p&gt;",
+            "lineNumber": 85
+          },
+          {
+            "text": "              )}",
+            "lineNumber": 86
+          },
+          {
+            "text": "            &lt;/button&gt;",
+            "lineNumber": 87
+          },
+          {
+            "text": "          ))}",
+            "lineNumber": 88
+          },
+          {
+            "text": "        &lt;/div&gt;",
+            "lineNumber": 89
+          },
+          {
+            "text": "      &lt;/div&gt;",
+            "lineNumber": 90
+          },
+          {
+            "lineNumber": 91
+          },
+          {
+            "text": "      {/* Right Column - Create New Topic */}",
+            "lineNumber": 92
+          },
+          {
+            "text": "      &lt;div&gt;",
+            "lineNumber": 93
+          },
+          {
+            "text": "        &lt;form",
+            "lineNumber": 94
+          },
+          {
+            "text": "          onSubmit={handleSubmit}",
+            "lineNumber": 95
+          },
+          {
+            "text": "}",
+            "lineNumber": 167,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.27686938643455505
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/services/topics.ts",
+        "range": {
+          "startPosition": {
+            "line": 58,
+            "column": 1
+          },
+          "endPosition": {
+            "line": 80,
+            "column": 1
+          }
+        },
+        "contents": "export async function fetchTopicById(topicId: string): Promise&lt;Topic | null&gt; {\n  const topicRef = doc(topicsCollection, topicId)\n  const snapshot = await getDoc(topicRef)\n\n  if (!snapshot.exists()) return null\n\n  const data = snapshot.data()\n  return {\n    id: snapshot.id,\n    title: data.title ?? '',\n    description: data.description ?? '',\n    ownerId: data.ownerId ?? '',\n    stage: data.stage as Stage | undefined,\n    createdAt: data.createdAt?.toDate?.(),\n  }\n}\n\nexport async function updateTopicStage(topicId: string, stage: Stage) {\n  const topicRef = doc(topicsCollection, topicId)\n}",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "export async function fetchTopicById(topicId: string): Promise&lt;Topic | null&gt; {",
+            "lineNumber": 61,
+            "isSignature": true
+          },
+          {
+            "text": "  const topicRef = doc(topicsCollection, topicId)",
+            "lineNumber": 62
+          },
+          {
+            "text": "  const snapshot = await getDoc(topicRef)",
+            "lineNumber": 63
+          },
+          {
+            "lineNumber": 64
+          },
+          {
+            "text": "  if (!snapshot.exists()) return null",
+            "lineNumber": 65
+          },
+          {
+            "lineNumber": 66
+          },
+          {
+            "text": "  const data = snapshot.data()",
+            "lineNumber": 67
+          },
+          {
+            "text": "  return {",
+            "lineNumber": 68
+          },
+          {
+            "text": "    id: snapshot.id,",
+            "lineNumber": 69
+          },
+          {
+            "text": "    title: data.title ?? '',",
+            "lineNumber": 70
+          },
+          {
+            "text": "    description: data.description ?? '',",
+            "lineNumber": 71
+          },
+          {
+            "text": "    ownerId: data.ownerId ?? '',",
+            "lineNumber": 72
+          },
+          {
+            "text": "    stage: data.stage as Stage | undefined,",
+            "lineNumber": 73
+          },
+          {
+            "text": "    createdAt: data.createdAt?.toDate?.(),",
+            "lineNumber": 74
+          },
+          {
+            "text": "  }",
+            "lineNumber": 75
+          },
+          {
+            "text": "}",
+            "lineNumber": 76,
+            "isSignature": true
+          },
+          {
+            "lineNumber": 77
+          },
+          {
+            "text": "export async function updateTopicStage(topicId: string, stage: Stage) {",
+            "lineNumber": 78,
+            "isSignature": true
+          },
+          {
+            "text": "  const topicRef = doc(topicsCollection, topicId)",
+            "lineNumber": 79
+          },
+          {
+            "text": "}",
+            "lineNumber": 81,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.2670747935771942
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/pages/Criteria.tsx",
+        "range": {
+          "startPosition": {
+            "line": 14
+          },
+          "endPosition": {
+            "line": 372,
+            "column": 1
+          }
+        },
+        "contents": "export function CriteriaPage() {\n\n\n  const updateCriteriaMutation = useMutation({\n    mutationFn: ({\n      criteriaId,\n      topicIds,\n    }: {\n      criteriaId: string\n      topicIds: string[]\n    }) =&gt; updateCriteria(criteriaId, { topicIds }),\n    onSuccess: () =&gt; {\n      queryClient.invalidateQueries({ queryKey: ['criteria', user?.uid] })\n    },\n  })\n\n  const handleSubmit = (event: FormEvent) =&gt; {\n    event.preventDefault()\n    setTitleError('')\n\n    if (!title.trim()) {\n      setTitleError('Criteria title is required')\n      return\n    }\n\n    createCriteriaMutation.mutate()\n  }\n\n  const toggleTopicSelection = (topicId: string) =&gt; {\n    setSelectedTopicIds((prev) =&gt;\n      prev.includes(topicId)\n        ? prev.filter((id) =&gt; id !== topicId)\n        : [...prev, topicId],\n    )\n  }\n\n  const toggleCriteriaTopic = (criteriaId: string, topicId: string) =&gt; {\n    setCriteriaTopicSelections((prev) =&gt; {\n      const current = prev[criteriaId] ?? []\n      const next = current.includes(topicId)\n        ? current.filter((id) =&gt; id !== topicId)\n        : [...current, topicId]\n\n      updateCriteriaMutation.mutate({\n        criteriaId,\n        topicIds: next,\n      })\n\n      return { ...prev, [criteriaId]: next }\n    })\n  }\n\n  useEffect(() =&gt; {\n    if (criteria) {\n      const nextSelections: Record&lt;string, string[]&gt; = {}\n      const nextOpen: Record&lt;string, boolean&gt; = {}\n      criteria.forEach((c) =&gt; {\n        nextSelections[c.id] = c.topicIds ?? []\n        nextOpen[c.id] = false\n      })\n      setCriteriaTopicSelections(nextSelections)\n      setCriteriaEditOpen((prev) =&gt; ({ ...nextOpen, ...prev }))\n    }\n  }, [criteria])\n\n  const topicTitleById = new Map&lt;string, string&gt;(\n    (topics ?? []).map((topic) =&gt; [topic.id, topic.title]),\n  )\n\n  const toggleEditLinks = (item: Criteria) =&gt; {\n    setCriteriaTopicSelections((prev) =&gt; ({\n      ...prev,\n      [item.id]: prev[item.id] ?? item.topicIds ?? [],\n    }))\n    setCriteriaEditOpen((prev) =&gt; ({\n      ...prev,\n      [item.id]: !prev[item.id],\n    }))\n  }\n\n  return (\n    &lt;div className=\"grid gap-8 lg:grid-cols-2\"&gt;\n}",
+        "signatures": {
+          "ranges": [
+            {
+              "startPosition": {
+                "line": 15,
+                "column": 1
+              },
+              "endPosition": {
+                "line": 15,
+                "column": 8
+              }
+            },
+            {
+              "startPosition": {
+                "line": 15,
+                "column": 8
+              },
+              "endPosition": {
+                "line": 16,
+                "column": 3
+              }
+            }
+          ]
+        },
+        "detailedLines": [
+          {
+            "text": "export function CriteriaPage() {",
+            "lineNumber": 15,
+            "isSignature": true
+          },
+          {
+            "lineNumber": 68
+          },
+          {
+            "lineNumber": 69
+          },
+          {
+            "text": "  const updateCriteriaMutation = useMutation({",
+            "lineNumber": 70
+          },
+          {
+            "text": "    mutationFn: ({",
+            "lineNumber": 71
+          },
+          {
+            "text": "      criteriaId,",
+            "lineNumber": 72
+          },
+          {
+            "text": "      topicIds,",
+            "lineNumber": 73
+          },
+          {
+            "text": "    }: {",
+            "lineNumber": 74
+          },
+          {
+            "text": "      criteriaId: string",
+            "lineNumber": 75
+          },
+          {
+            "text": "      topicIds: string[]",
+            "lineNumber": 76
+          },
+          {
+            "text": "    }) =&gt; updateCriteria(criteriaId, { topicIds }),",
+            "lineNumber": 77
+          },
+          {
+            "text": "    onSuccess: () =&gt; {",
+            "lineNumber": 78
+          },
+          {
+            "text": "      queryClient.invalidateQueries({ queryKey: ['criteria', user?.uid] })",
+            "lineNumber": 79
+          },
+          {
+            "text": "    },",
+            "lineNumber": 80
+          },
+          {
+            "text": "  })",
+            "lineNumber": 81
+          },
+          {
+            "lineNumber": 82
+          },
+          {
+            "text": "  const handleSubmit = (event: FormEvent) =&gt; {",
+            "lineNumber": 83
+          },
+          {
+            "text": "    event.preventDefault()",
+            "lineNumber": 84
+          },
+          {
+            "text": "    setTitleError('')",
+            "lineNumber": 85
+          },
+          {
+            "lineNumber": 86
+          },
+          {
+            "text": "    if (!title.trim()) {",
+            "lineNumber": 87
+          },
+          {
+            "text": "      setTitleError('Criteria title is required')",
+            "lineNumber": 88
+          },
+          {
+            "text": "      return",
+            "lineNumber": 89
+          },
+          {
+            "text": "    }",
+            "lineNumber": 90
+          },
+          {
+            "lineNumber": 91
+          },
+          {
+            "text": "    createCriteriaMutation.mutate()",
+            "lineNumber": 92
+          },
+          {
+            "text": "  }",
+            "lineNumber": 93
+          },
+          {
+            "lineNumber": 94
+          },
+          {
+            "text": "  const toggleTopicSelection = (topicId: string) =&gt; {",
+            "lineNumber": 95
+          },
+          {
+            "text": "    setSelectedTopicIds((prev) =&gt;",
+            "lineNumber": 96
+          },
+          {
+            "text": "      prev.includes(topicId)",
+            "lineNumber": 97
+          },
+          {
+            "text": "        ? prev.filter((id) =&gt; id !== topicId)",
+            "lineNumber": 98
+          },
+          {
+            "text": "        : [...prev, topicId],",
+            "lineNumber": 99
+          },
+          {
+            "text": "    )",
+            "lineNumber": 100
+          },
+          {
+            "text": "  }",
+            "lineNumber": 101
+          },
+          {
+            "lineNumber": 102
+          },
+          {
+            "text": "  const toggleCriteriaTopic = (criteriaId: string, topicId: string) =&gt; {",
+            "lineNumber": 103
+          },
+          {
+            "text": "    setCriteriaTopicSelections((prev) =&gt; {",
+            "lineNumber": 104
+          },
+          {
+            "text": "      const current = prev[criteriaId] ?? []",
+            "lineNumber": 105
+          },
+          {
+            "text": "      const next = current.includes(topicId)",
+            "lineNumber": 106
+          },
+          {
+            "text": "        ? current.filter((id) =&gt; id !== topicId)",
+            "lineNumber": 107
+          },
+          {
+            "text": "        : [...current, topicId]",
+            "lineNumber": 108
+          },
+          {
+            "lineNumber": 109
+          },
+          {
+            "text": "      updateCriteriaMutation.mutate({",
+            "lineNumber": 110
+          },
+          {
+            "text": "        criteriaId,",
+            "lineNumber": 111
+          },
+          {
+            "text": "        topicIds: next,",
+            "lineNumber": 112
+          },
+          {
+            "text": "      })",
+            "lineNumber": 113
+          },
+          {
+            "lineNumber": 114
+          },
+          {
+            "text": "      return { ...prev, [criteriaId]: next }",
+            "lineNumber": 115
+          },
+          {
+            "text": "    })",
+            "lineNumber": 116
+          },
+          {
+            "text": "  }",
+            "lineNumber": 117
+          },
+          {
+            "lineNumber": 118
+          },
+          {
+            "text": "  useEffect(() =&gt; {",
+            "lineNumber": 119
+          },
+          {
+            "text": "    if (criteria) {",
+            "lineNumber": 120
+          },
+          {
+            "text": "      const nextSelections: Record&lt;string, string[]&gt; = {}",
+            "lineNumber": 121
+          },
+          {
+            "text": "      const nextOpen: Record&lt;string, boolean&gt; = {}",
+            "lineNumber": 122
+          },
+          {
+            "text": "      criteria.forEach((c) =&gt; {",
+            "lineNumber": 123
+          },
+          {
+            "text": "        nextSelections[c.id] = c.topicIds ?? []",
+            "lineNumber": 124
+          },
+          {
+            "text": "        nextOpen[c.id] = false",
+            "lineNumber": 125
+          },
+          {
+            "text": "      })",
+            "lineNumber": 126
+          },
+          {
+            "text": "      setCriteriaTopicSelections(nextSelections)",
+            "lineNumber": 127
+          },
+          {
+            "text": "      setCriteriaEditOpen((prev) =&gt; ({ ...nextOpen, ...prev }))",
+            "lineNumber": 128
+          },
+          {
+            "text": "    }",
+            "lineNumber": 129
+          },
+          {
+            "text": "  }, [criteria])",
+            "lineNumber": 130
+          },
+          {
+            "lineNumber": 131
+          },
+          {
+            "text": "  const topicTitleById = new Map&lt;string, string&gt;(",
+            "lineNumber": 132
+          },
+          {
+            "text": "    (topics ?? []).map((topic) =&gt; [topic.id, topic.title]),",
+            "lineNumber": 133
+          },
+          {
+            "text": "  )",
+            "lineNumber": 134
+          },
+          {
+            "lineNumber": 135
+          },
+          {
+            "text": "  const toggleEditLinks = (item: Criteria) =&gt; {",
+            "lineNumber": 136
+          },
+          {
+            "text": "    setCriteriaTopicSelections((prev) =&gt; ({",
+            "lineNumber": 137
+          },
+          {
+            "text": "      ...prev,",
+            "lineNumber": 138
+          },
+          {
+            "text": "      [item.id]: prev[item.id] ?? item.topicIds ?? [],",
+            "lineNumber": 139
+          },
+          {
+            "text": "    }))",
+            "lineNumber": 140
+          },
+          {
+            "text": "    setCriteriaEditOpen((prev) =&gt; ({",
+            "lineNumber": 141
+          },
+          {
+            "text": "      ...prev,",
+            "lineNumber": 142
+          },
+          {
+            "text": "      [item.id]: !prev[item.id],",
+            "lineNumber": 143
+          },
+          {
+            "text": "    }))",
+            "lineNumber": 144
+          },
+          {
+            "text": "  }",
+            "lineNumber": 145
+          },
+          {
+            "lineNumber": 146
+          },
+          {
+            "text": "  return (",
+            "lineNumber": 147
+          },
+          {
+            "text": "    &lt;div className=\"grid gap-8 lg:grid-cols-2\"&gt;",
+            "lineNumber": 148
+          },
+          {
+            "text": "}",
+            "lineNumber": 373,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.26053065061569214
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./firestore.rules",
+        "range": {
+          "startPosition": {},
+          "endPosition": {
+            "line": 46,
+            "column": 1
+          }
+        },
+        "contents": "rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    function isSignedIn() {\n      return request.auth != null;\n    }\n\n    // For reads/updates/deletes: use existing resource\n    function isOwnerExisting() {\n      return isSignedIn() &amp;&amp;\n        resource.data.keys().hasAny(['ownerId']) &amp;&amp;\n        resource.data.ownerId == request.auth.uid;\n    }\n\n    // For creates/updates: use incoming data\n    function isOwnerNew() {\n      return isSignedIn() &amp;&amp;\n        request.resource.data.keys().hasAny(['ownerId']) &amp;&amp;\n        request.resource.data.ownerId == request.auth.uid;\n    }\n\n    // Messages inherit ownership from their parent topic (they don't store ownerId)\n    function topicOwner(topicId) {\n      return isSignedIn() &amp;&amp;\n        get(/databases/$(database)/documents/topics/$(topicId)).data.ownerId == request.auth.uid;\n    }\n\n    // Topics collection with messages subcollection\n    match /topics/{topicId} {\n      allow read: if isOwnerExisting();\n      allow create: if isOwnerNew();\n      allow update: if isOwnerExisting() &amp;&amp; isOwnerNew();\n      allow delete: if isOwnerExisting();\n\n      match /messages/{messageId} {\n        allow read, create, update, delete: if topicOwner(topicId);\n      }\n    }\n\n    // Fallback for any other docs that carry ownerId directly\n    match /{document=**} {\n      allow read, delete: if isOwnerExisting();\n      allow create: if isOwnerNew();\n      allow update: if isOwnerExisting() &amp;&amp; isOwnerNew();\n    }\n  }\n}",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "rules_version = '2';",
+            "lineNumber": 1
+          },
+          {
+            "text": "service cloud.firestore {",
+            "lineNumber": 2
+          },
+          {
+            "text": "  match /databases/{database}/documents {",
+            "lineNumber": 3
+          },
+          {
+            "text": "    function isSignedIn() {",
+            "lineNumber": 4
+          },
+          {
+            "text": "      return request.auth != null;",
+            "lineNumber": 5
+          },
+          {
+            "text": "    }",
+            "lineNumber": 6
+          },
+          {
+            "lineNumber": 7
+          },
+          {
+            "text": "    // For reads/updates/deletes: use existing resource",
+            "lineNumber": 8
+          },
+          {
+            "text": "    function isOwnerExisting() {",
+            "lineNumber": 9
+          },
+          {
+            "text": "      return isSignedIn() &amp;&amp;",
+            "lineNumber": 10
+          },
+          {
+            "text": "        resource.data.keys().hasAny(['ownerId']) &amp;&amp;",
+            "lineNumber": 11
+          },
+          {
+            "text": "        resource.data.ownerId == request.auth.uid;",
+            "lineNumber": 12
+          },
+          {
+            "text": "    }",
+            "lineNumber": 13
+          },
+          {
+            "lineNumber": 14
+          },
+          {
+            "text": "    // For creates/updates: use incoming data",
+            "lineNumber": 15
+          },
+          {
+            "text": "    function isOwnerNew() {",
+            "lineNumber": 16
+          },
+          {
+            "text": "      return isSignedIn() &amp;&amp;",
+            "lineNumber": 17
+          },
+          {
+            "text": "        request.resource.data.keys().hasAny(['ownerId']) &amp;&amp;",
+            "lineNumber": 18
+          },
+          {
+            "text": "        request.resource.data.ownerId == request.auth.uid;",
+            "lineNumber": 19
+          },
+          {
+            "text": "    }",
+            "lineNumber": 20
+          },
+          {
+            "lineNumber": 21
+          },
+          {
+            "text": "    // Messages inherit ownership from their parent topic (they don't store ownerId)",
+            "lineNumber": 22
+          },
+          {
+            "text": "    function topicOwner(topicId) {",
+            "lineNumber": 23
+          },
+          {
+            "text": "      return isSignedIn() &amp;&amp;",
+            "lineNumber": 24
+          },
+          {
+            "text": "        get(/databases/$(database)/documents/topics/$(topicId)).data.ownerId == request.auth.uid;",
+            "lineNumber": 25
+          },
+          {
+            "text": "    }",
+            "lineNumber": 26
+          },
+          {
+            "lineNumber": 27
+          },
+          {
+            "text": "    // Topics collection with messages subcollection",
+            "lineNumber": 28
+          },
+          {
+            "text": "    match /topics/{topicId} {",
+            "lineNumber": 29
+          },
+          {
+            "text": "      allow read: if isOwnerExisting();",
+            "lineNumber": 30
+          },
+          {
+            "text": "      allow create: if isOwnerNew();",
+            "lineNumber": 31
+          },
+          {
+            "text": "      allow update: if isOwnerExisting() &amp;&amp; isOwnerNew();",
+            "lineNumber": 32
+          },
+          {
+            "text": "      allow delete: if isOwnerExisting();",
+            "lineNumber": 33
+          },
+          {
+            "lineNumber": 34
+          },
+          {
+            "text": "      match /messages/{messageId} {",
+            "lineNumber": 35
+          },
+          {
+            "text": "        allow read, create, update, delete: if topicOwner(topicId);",
+            "lineNumber": 36
+          },
+          {
+            "text": "      }",
+            "lineNumber": 37
+          },
+          {
+            "text": "    }",
+            "lineNumber": 38
+          },
+          {
+            "lineNumber": 39
+          },
+          {
+            "text": "    // Fallback for any other docs that carry ownerId directly",
+            "lineNumber": 40
+          },
+          {
+            "text": "    match /{document=**} {",
+            "lineNumber": 41
+          },
+          {
+            "text": "      allow read, delete: if isOwnerExisting();",
+            "lineNumber": 42
+          },
+          {
+            "text": "      allow create: if isOwnerNew();",
+            "lineNumber": 43
+          },
+          {
+            "text": "      allow update: if isOwnerExisting() &amp;&amp; isOwnerNew();",
+            "lineNumber": 44
+          },
+          {
+            "text": "    }",
+            "lineNumber": 45
+          },
+          {
+            "text": "  }",
+            "lineNumber": 46
+          },
+          {
+            "text": "}",
+            "lineNumber": 47
+          }
+        ]
+      },
+      "score": 0.2603183090686798
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/app/router.tsx",
+        "range": {
+          "startPosition": {
+            "column": 72
+          },
+          "endPosition": {
+            "line": 32,
+            "column": 2
+          }
+        },
+        "contents": "import { ProtectedRoute } from '../features/auth/ProtectedRoute'\nimport { LoginPage } from '../pages/Login'\nimport { TopicDetailPage } from '../pages/TopicDetail'\nimport { TopicsPage } from '../pages/Topics'\nimport { CriteriaPage } from '../pages/Criteria'\nimport { AppShell } from '../components/layout/AppShell'\n\nexport const router = createBrowserRouter([\n  {\n    path: '/login',\n    element: &lt;LoginPage /&gt;,\n  },\n  {\n    path: '/',\n    element: (\n      &lt;ProtectedRoute&gt;\n        &lt;AppShell /&gt;\n      &lt;/ProtectedRoute&gt;\n    ),\n    children: [\n      { index: true, element: &lt;Navigate to=\"/topics\" replace /&gt; },\n      { path: 'topics', element: &lt;TopicsPage /&gt; },\n      { path: 'topics/:topicId', element: &lt;TopicDetailPage /&gt; },\n      { path: 'criteria', element: &lt;CriteriaPage /&gt; },\n      { path: '*', element: &lt;Navigate to=\"/topics\" replace /&gt; },\n    ],\n  },\n  {\n    path: '*',\n    element: &lt;Outlet /&gt;,\n  },\n])",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "import { ProtectedRoute } from '../features/auth/ProtectedRoute'",
+            "lineNumber": 2
+          },
+          {
+            "text": "import { LoginPage } from '../pages/Login'",
+            "lineNumber": 3
+          },
+          {
+            "text": "import { TopicDetailPage } from '../pages/TopicDetail'",
+            "lineNumber": 4
+          },
+          {
+            "text": "import { TopicsPage } from '../pages/Topics'",
+            "lineNumber": 5
+          },
+          {
+            "text": "import { CriteriaPage } from '../pages/Criteria'",
+            "lineNumber": 6
+          },
+          {
+            "text": "import { AppShell } from '../components/layout/AppShell'",
+            "lineNumber": 7
+          },
+          {
+            "lineNumber": 8
+          },
+          {
+            "text": "export const router = createBrowserRouter([",
+            "lineNumber": 9
+          },
+          {
+            "text": "  {",
+            "lineNumber": 10
+          },
+          {
+            "text": "    path: '/login',",
+            "lineNumber": 11
+          },
+          {
+            "text": "    element: &lt;LoginPage /&gt;,",
+            "lineNumber": 12
+          },
+          {
+            "text": "  },",
+            "lineNumber": 13
+          },
+          {
+            "text": "  {",
+            "lineNumber": 14
+          },
+          {
+            "text": "    path: '/',",
+            "lineNumber": 15
+          },
+          {
+            "text": "    element: (",
+            "lineNumber": 16
+          },
+          {
+            "text": "      &lt;ProtectedRoute&gt;",
+            "lineNumber": 17
+          },
+          {
+            "text": "        &lt;AppShell /&gt;",
+            "lineNumber": 18
+          },
+          {
+            "text": "      &lt;/ProtectedRoute&gt;",
+            "lineNumber": 19
+          },
+          {
+            "text": "    ),",
+            "lineNumber": 20
+          },
+          {
+            "text": "    children: [",
+            "lineNumber": 21
+          },
+          {
+            "text": "      { index: true, element: &lt;Navigate to=\"/topics\" replace /&gt; },",
+            "lineNumber": 22
+          },
+          {
+            "text": "      { path: 'topics', element: &lt;TopicsPage /&gt; },",
+            "lineNumber": 23
+          },
+          {
+            "text": "      { path: 'topics/:topicId', element: &lt;TopicDetailPage /&gt; },",
+            "lineNumber": 24
+          },
+          {
+            "text": "      { path: 'criteria', element: &lt;CriteriaPage /&gt; },",
+            "lineNumber": 25
+          },
+          {
+            "text": "      { path: '*', element: &lt;Navigate to=\"/topics\" replace /&gt; },",
+            "lineNumber": 26
+          },
+          {
+            "text": "    ],",
+            "lineNumber": 27
+          },
+          {
+            "text": "  },",
+            "lineNumber": 28
+          },
+          {
+            "text": "  {",
+            "lineNumber": 29
+          },
+          {
+            "text": "    path: '*',",
+            "lineNumber": 30
+          },
+          {
+            "text": "    element: &lt;Outlet /&gt;,",
+            "lineNumber": 31
+          },
+          {
+            "text": "  },",
+            "lineNumber": 32
+          },
+          {
+            "text": "])",
+            "lineNumber": 33
+          }
+        ]
+      },
+      "score": 0.24442550539970398
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/pages/Criteria.tsx",
+        "range": {
+          "startPosition": {
+            "line": 14
+          },
+          "endPosition": {
+            "line": 372,
+            "column": 1
+          }
+        },
+        "contents": "export function CriteriaPage() {\n\n\n          &lt;div className=\"space-y-2\"&gt;\n            &lt;p className=\"text-sm font-medium text-slate-700\"&gt;Select topics&lt;/p&gt;\n            {topicsLoading &amp;&amp; (\n              &lt;p className=\"text-sm text-slate-600\"&gt;Loading topics…&lt;/p&gt;\n            )}\n            {topicsError &amp;&amp; (\n              &lt;p className=\"text-sm text-red-600\"&gt;\n                {topicsError instanceof Error\n                  ? topicsError.message\n                  : 'Unable to load topics'}\n              &lt;/p&gt;\n            )}\n            {!topicsLoading &amp;&amp; (topics?.length ?? 0) === 0 &amp;&amp; (\n              &lt;p className=\"text-sm text-slate-600\"&gt;\n                No topics yet. Create a topic to link it here.\n              &lt;/p&gt;\n            )}\n            &lt;div className=\"flex flex-col gap-2\"&gt;\n              {topics?.map((topic: Topic) =&gt; (\n                &lt;label\n                  key={topic.id}\n                  className=\"flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm\"\n                &gt;\n                  &lt;input\n                    type=\"checkbox\"\n                    className=\"h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/40\"\n                    checked={selectedTopicIds.includes(topic.id)}\n                    onChange={() =&gt; toggleTopicSelection(topic.id)}\n                  /&gt;\n                  &lt;span&gt;{topic.title}&lt;/span&gt;\n                &lt;/label&gt;\n              ))}\n            &lt;/div&gt;\n          &lt;/div&gt;\n\n          &lt;button\n            type=\"submit\"\n            disabled={createCriteriaMutation.isPending}\n            className=\"w-full rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60\"\n          &gt;\n            {createCriteriaMutation.isPending\n              ? 'Saving...'\n              : 'Create criteria'}\n          &lt;/button&gt;\n\n          {createCriteriaMutation.error &amp;&amp;\n}",
+        "signatures": {
+          "ranges": [
+            {
+              "startPosition": {
+                "line": 15,
+                "column": 1
+              },
+              "endPosition": {
+                "line": 15,
+                "column": 8
+              }
+            },
+            {
+              "startPosition": {
+                "line": 15,
+                "column": 8
+              },
+              "endPosition": {
+                "line": 16,
+                "column": 3
+              }
+            }
+          ]
+        },
+        "detailedLines": [
+          {
+            "text": "export function CriteriaPage() {",
+            "lineNumber": 15,
+            "isSignature": true
+          },
+          {
+            "lineNumber": 315
+          },
+          {
+            "lineNumber": 316
+          },
+          {
+            "text": "          &lt;div className=\"space-y-2\"&gt;",
+            "lineNumber": 317
+          },
+          {
+            "text": "            &lt;p className=\"text-sm font-medium text-slate-700\"&gt;Select topics&lt;/p&gt;",
+            "lineNumber": 318
+          },
+          {
+            "text": "            {topicsLoading &amp;&amp; (",
+            "lineNumber": 319
+          },
+          {
+            "text": "              &lt;p className=\"text-sm text-slate-600\"&gt;Loading topics…&lt;/p&gt;",
+            "lineNumber": 320
+          },
+          {
+            "text": "            )}",
+            "lineNumber": 321
+          },
+          {
+            "text": "            {topicsError &amp;&amp; (",
+            "lineNumber": 322
+          },
+          {
+            "text": "              &lt;p className=\"text-sm text-red-600\"&gt;",
+            "lineNumber": 323
+          },
+          {
+            "text": "                {topicsError instanceof Error",
+            "lineNumber": 324
+          },
+          {
+            "text": "                  ? topicsError.message",
+            "lineNumber": 325
+          },
+          {
+            "text": "                  : 'Unable to load topics'}",
+            "lineNumber": 326
+          },
+          {
+            "text": "              &lt;/p&gt;",
+            "lineNumber": 327
+          },
+          {
+            "text": "            )}",
+            "lineNumber": 328
+          },
+          {
+            "text": "            {!topicsLoading &amp;&amp; (topics?.length ?? 0) === 0 &amp;&amp; (",
+            "lineNumber": 329
+          },
+          {
+            "text": "              &lt;p className=\"text-sm text-slate-600\"&gt;",
+            "lineNumber": 330
+          },
+          {
+            "text": "                No topics yet. Create a topic to link it here.",
+            "lineNumber": 331
+          },
+          {
+            "text": "              &lt;/p&gt;",
+            "lineNumber": 332
+          },
+          {
+            "text": "            )}",
+            "lineNumber": 333
+          },
+          {
+            "text": "            &lt;div className=\"flex flex-col gap-2\"&gt;",
+            "lineNumber": 334
+          },
+          {
+            "text": "              {topics?.map((topic: Topic) =&gt; (",
+            "lineNumber": 335
+          },
+          {
+            "text": "                &lt;label",
+            "lineNumber": 336
+          },
+          {
+            "text": "                  key={topic.id}",
+            "lineNumber": 337
+          },
+          {
+            "text": "                  className=\"flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm\"",
+            "lineNumber": 338
+          },
+          {
+            "text": "                &gt;",
+            "lineNumber": 339
+          },
+          {
+            "text": "                  &lt;input",
+            "lineNumber": 340
+          },
+          {
+            "text": "                    type=\"checkbox\"",
+            "lineNumber": 341
+          },
+          {
+            "text": "                    className=\"h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/40\"",
+            "lineNumber": 342
+          },
+          {
+            "text": "                    checked={selectedTopicIds.includes(topic.id)}",
+            "lineNumber": 343
+          },
+          {
+            "text": "                    onChange={() =&gt; toggleTopicSelection(topic.id)}",
+            "lineNumber": 344
+          },
+          {
+            "text": "                  /&gt;",
+            "lineNumber": 345
+          },
+          {
+            "text": "                  &lt;span&gt;{topic.title}&lt;/span&gt;",
+            "lineNumber": 346
+          },
+          {
+            "text": "                &lt;/label&gt;",
+            "lineNumber": 347
+          },
+          {
+            "text": "              ))}",
+            "lineNumber": 348
+          },
+          {
+            "text": "            &lt;/div&gt;",
+            "lineNumber": 349
+          },
+          {
+            "text": "          &lt;/div&gt;",
+            "lineNumber": 350
+          },
+          {
+            "lineNumber": 351
+          },
+          {
+            "text": "          &lt;button",
+            "lineNumber": 352
+          },
+          {
+            "text": "            type=\"submit\"",
+            "lineNumber": 353
+          },
+          {
+            "text": "            disabled={createCriteriaMutation.isPending}",
+            "lineNumber": 354
+          },
+          {
+            "text": "            className=\"w-full rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60\"",
+            "lineNumber": 355
+          },
+          {
+            "text": "          &gt;",
+            "lineNumber": 356
+          },
+          {
+            "text": "            {createCriteriaMutation.isPending",
+            "lineNumber": 357
+          },
+          {
+            "text": "              ? 'Saving...'",
+            "lineNumber": 358
+          },
+          {
+            "text": "              : 'Create criteria'}",
+            "lineNumber": 359
+          },
+          {
+            "text": "          &lt;/button&gt;",
+            "lineNumber": 360
+          },
+          {
+            "lineNumber": 361
+          },
+          {
+            "text": "          {createCriteriaMutation.error &amp;&amp;",
+            "lineNumber": 362
+          },
+          {
+            "text": "}",
+            "lineNumber": 373,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.24243250489234924
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/services/topics.ts",
+        "range": {
+          "startPosition": {
+            "line": 75,
+            "column": 1
+          },
+          "endPosition": {
+            "line": 85,
+            "column": 1
+          }
+        },
+        "contents": "export async function updateTopicStage(topicId: string, stage: Stage) {\n  const topicRef = doc(topicsCollection, topicId)\n  await updateDoc(topicRef, { stage })\n}\n\nexport async function deleteTopic(topicId: string) {\n  const topicRef = doc(topicsCollection, topicId)\n}",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "export async function updateTopicStage(topicId: string, stage: Stage) {",
+            "lineNumber": 78,
+            "isSignature": true
+          },
+          {
+            "text": "  const topicRef = doc(topicsCollection, topicId)",
+            "lineNumber": 79
+          },
+          {
+            "text": "  await updateDoc(topicRef, { stage })",
+            "lineNumber": 80
+          },
+          {
+            "text": "}",
+            "lineNumber": 81,
+            "isSignature": true
+          },
+          {
+            "lineNumber": 82
+          },
+          {
+            "text": "export async function deleteTopic(topicId: string) {",
+            "lineNumber": 83,
+            "isSignature": true
+          },
+          {
+            "text": "  const topicRef = doc(topicsCollection, topicId)",
+            "lineNumber": 84
+          },
+          {
+            "text": "}",
+            "lineNumber": 86,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.22881686687469482
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/pages/Criteria.tsx",
+        "range": {
+          "startPosition": {
+            "line": 14
+          },
+          "endPosition": {
+            "line": 372,
+            "column": 1
+          }
+        },
+        "contents": "export function CriteriaPage() {\n(item: Criteria) =&gt; (\n\n\n                {criteriaEditOpen[item.id] &amp;&amp; (\n                  &lt;div className=\"space-y-2 rounded-lg border border-slate-200 bg-sand-50 p-3\"&gt;\n                    &lt;p className=\"text-xs font-semibold uppercase tracking-wide text-slate-500\"&gt;\n                      Update links\n                    &lt;/p&gt;\n                    &lt;div className=\"flex flex-col gap-2\"&gt;\n                      {topics?.map((topic: Topic) =&gt; {\n                        const isUpdating =\n                          updateCriteriaMutation.isPending &amp;&amp;\n                          updateCriteriaMutation.variables?.criteriaId ===\n                            item.id\n\n                        return (\n                          &lt;label\n                            key={topic.id}\n                            className=\"flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm\"\n                          &gt;\n                            &lt;input\n                              type=\"checkbox\"\n                              className=\"h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/40\"\n                              checked={\n                                (criteriaTopicSelections[item.id] ?? []).includes(\n                                  topic.id,\n                                )\n                              }\n                              onChange={() =&gt;\n                                toggleCriteriaTopic(item.id, topic.id)\n                              }\n                              disabled={isUpdating}\n                            /&gt;\n                            &lt;span&gt;{topic.title}&lt;/span&gt;\n                          &lt;/label&gt;\n                        )\n                      })}\n                      {!topicsLoading &amp;&amp; (topics?.length ?? 0) === 0 &amp;&amp; (\n                        &lt;p className=\"text-xs text-slate-600\"&gt;\n                          No topics yet. Create a topic to link it.\n                        &lt;/p&gt;\n                      )}\n                    &lt;/div&gt;\n                    {updateCriteriaMutation.error &amp;&amp;\n                      updateCriteriaMutation.variables?.criteriaId === item.id\n          )\n}",
+        "signatures": {
+          "ranges": [
+            {
+              "startPosition": {
+                "line": 15,
+                "column": 1
+              },
+              "endPosition": {
+                "line": 15,
+                "column": 8
+              }
+            },
+            {
+              "startPosition": {
+                "line": 15,
+                "column": 8
+              },
+              "endPosition": {
+                "line": 16,
+                "column": 3
+              }
+            },
+            {
+              "startPosition": {
+                "line": 173,
+                "column": 12
+              },
+              "endPosition": {
+                "line": 173,
+                "column": 12
+              }
+            },
+            {
+              "startPosition": {
+                "line": 173,
+                "column": 26
+              },
+              "endPosition": {
+                "line": 174,
+                "column": 13
+              }
+            }
+          ]
+        },
+        "detailedLines": [
+          {
+            "text": "export function CriteriaPage() {",
+            "lineNumber": 15,
+            "isSignature": true
+          },
+          {
+            "text": "(item: Criteria) =&gt; (",
+            "lineNumber": 173
+          },
+          {
+            "lineNumber": 223
+          },
+          {
+            "lineNumber": 224
+          },
+          {
+            "text": "                {criteriaEditOpen[item.id] &amp;&amp; (",
+            "lineNumber": 225
+          },
+          {
+            "text": "                  &lt;div className=\"space-y-2 rounded-lg border border-slate-200 bg-sand-50 p-3\"&gt;",
+            "lineNumber": 226
+          },
+          {
+            "text": "                    &lt;p className=\"text-xs font-semibold uppercase tracking-wide text-slate-500\"&gt;",
+            "lineNumber": 227
+          },
+          {
+            "text": "                      Update links",
+            "lineNumber": 228
+          },
+          {
+            "text": "                    &lt;/p&gt;",
+            "lineNumber": 229
+          },
+          {
+            "text": "                    &lt;div className=\"flex flex-col gap-2\"&gt;",
+            "lineNumber": 230
+          },
+          {
+            "text": "                      {topics?.map((topic: Topic) =&gt; {",
+            "lineNumber": 231
+          },
+          {
+            "text": "                        const isUpdating =",
+            "lineNumber": 232
+          },
+          {
+            "text": "                          updateCriteriaMutation.isPending &amp;&amp;",
+            "lineNumber": 233
+          },
+          {
+            "text": "                          updateCriteriaMutation.variables?.criteriaId ===",
+            "lineNumber": 234
+          },
+          {
+            "text": "                            item.id",
+            "lineNumber": 235
+          },
+          {
+            "lineNumber": 236
+          },
+          {
+            "text": "                        return (",
+            "lineNumber": 237
+          },
+          {
+            "text": "                          &lt;label",
+            "lineNumber": 238
+          },
+          {
+            "text": "                            key={topic.id}",
+            "lineNumber": 239
+          },
+          {
+            "text": "                            className=\"flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm\"",
+            "lineNumber": 240
+          },
+          {
+            "text": "                          &gt;",
+            "lineNumber": 241
+          },
+          {
+            "text": "                            &lt;input",
+            "lineNumber": 242
+          },
+          {
+            "text": "                              type=\"checkbox\"",
+            "lineNumber": 243
+          },
+          {
+            "text": "                              className=\"h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/40\"",
+            "lineNumber": 244
+          },
+          {
+            "text": "                              checked={",
+            "lineNumber": 245
+          },
+          {
+            "text": "                                (criteriaTopicSelections[item.id] ?? []).includes(",
+            "lineNumber": 246
+          },
+          {
+            "text": "                                  topic.id,",
+            "lineNumber": 247
+          },
+          {
+            "text": "                                )",
+            "lineNumber": 248
+          },
+          {
+            "text": "                              }",
+            "lineNumber": 249
+          },
+          {
+            "text": "                              onChange={() =&gt;",
+            "lineNumber": 250
+          },
+          {
+            "text": "                                toggleCriteriaTopic(item.id, topic.id)",
+            "lineNumber": 251
+          },
+          {
+            "text": "                              }",
+            "lineNumber": 252
+          },
+          {
+            "text": "                              disabled={isUpdating}",
+            "lineNumber": 253
+          },
+          {
+            "text": "                            /&gt;",
+            "lineNumber": 254
+          },
+          {
+            "text": "                            &lt;span&gt;{topic.title}&lt;/span&gt;",
+            "lineNumber": 255
+          },
+          {
+            "text": "                          &lt;/label&gt;",
+            "lineNumber": 256
+          },
+          {
+            "text": "                        )",
+            "lineNumber": 257
+          },
+          {
+            "text": "                      })}",
+            "lineNumber": 258
+          },
+          {
+            "text": "                      {!topicsLoading &amp;&amp; (topics?.length ?? 0) === 0 &amp;&amp; (",
+            "lineNumber": 259
+          },
+          {
+            "text": "                        &lt;p className=\"text-xs text-slate-600\"&gt;",
+            "lineNumber": 260
+          },
+          {
+            "text": "                          No topics yet. Create a topic to link it.",
+            "lineNumber": 261
+          },
+          {
+            "text": "                        &lt;/p&gt;",
+            "lineNumber": 262
+          },
+          {
+            "text": "                      )}",
+            "lineNumber": 263
+          },
+          {
+            "text": "                    &lt;/div&gt;",
+            "lineNumber": 264
+          },
+          {
+            "text": "                    {updateCriteriaMutation.error &amp;&amp;",
+            "lineNumber": 265
+          },
+          {
+            "text": "                      updateCriteriaMutation.variables?.criteriaId === item.id",
+            "lineNumber": 266
+          },
+          {
+            "text": "          )",
+            "lineNumber": 277
+          },
+          {
+            "text": "}",
+            "lineNumber": 373,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.21545565128326416
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./README.md",
+        "range": {
+          "startPosition": {},
+          "endPosition": {
+            "line": 23
+          }
+        },
+        "contents": "# Clauterion prototype\n\nWeb prototype for exploring AI interactions with Firebase Auth/Firestore, a React client, and a Firebase Function placeholder for Claude.\n\n## Structure\n- &#96;frontend/&#96; – React + TypeScript + Vite + Tailwind + React Query. Routes for login, topic list/create, and topic detail with message thread and Claude call.\n- &#96;functions/&#96; – Firebase Function &#96;createAssistantMessage&#96; with Zod validation and a placeholder response (replace with real Claude API call).\n\n## Setup\n1) Frontend\n   - Copy &#96;frontend/env.sample&#96; to &#96;frontend/.env.local&#96; and fill your Firebase project values.\n   - Install deps: &#96;cd frontend &amp;&amp; npm install&#96;.\n   - Run dev server: &#96;npm run dev&#96;.\n2) Functions\n   - Install deps: &#96;cd functions &amp;&amp; npm install&#96;.\n   - Set secret for Claude: &#96;firebase functions:config:set claude.key=\"sk-...\"&#96; or add via Firebase console.\n   - Build once: &#96;npm run build&#96;. Deploy with &#96;firebase deploy --only functions&#96; (after initializing Firebase in this repo).\n\n## Notes\n- Client calls the callable function named &#96;createAssistantMessage&#96; for Claude replies; it stores messages under &#96;topics/{topicId}/messages&#96;.\n- The function currently returns a placeholder response. Swap in the real Claude API call using the secret.\n- Keep Firebase keys client-side only for the web SDK; the Claude key must stay in Functions config.",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "# Clauterion prototype",
+            "lineNumber": 1
+          },
+          {
+            "lineNumber": 2
+          },
+          {
+            "text": "Web prototype for exploring AI interactions with Firebase Auth/Firestore, a React client, and a Firebase Function placeholder for Claude.",
+            "lineNumber": 3
+          },
+          {
+            "lineNumber": 4
+          },
+          {
+            "text": "## Structure",
+            "lineNumber": 5
+          },
+          {
+            "text": "- &#96;frontend/&#96; – React + TypeScript + Vite + Tailwind + React Query. Routes for login, topic list/create, and topic detail with message thread and Claude call.",
+            "lineNumber": 6
+          },
+          {
+            "text": "- &#96;functions/&#96; – Firebase Function &#96;createAssistantMessage&#96; with Zod validation and a placeholder response (replace with real Claude API call).",
+            "lineNumber": 7
+          },
+          {
+            "lineNumber": 8
+          },
+          {
+            "text": "## Setup",
+            "lineNumber": 9
+          },
+          {
+            "text": "1) Frontend",
+            "lineNumber": 10
+          },
+          {
+            "text": "   - Copy &#96;frontend/env.sample&#96; to &#96;frontend/.env.local&#96; and fill your Firebase project values.",
+            "lineNumber": 11
+          },
+          {
+            "text": "   - Install deps: &#96;cd frontend &amp;&amp; npm install&#96;.",
+            "lineNumber": 12
+          },
+          {
+            "text": "   - Run dev server: &#96;npm run dev&#96;.",
+            "lineNumber": 13
+          },
+          {
+            "text": "2) Functions",
+            "lineNumber": 14
+          },
+          {
+            "text": "   - Install deps: &#96;cd functions &amp;&amp; npm install&#96;.",
+            "lineNumber": 15
+          },
+          {
+            "text": "   - Set secret for Claude: &#96;firebase functions:config:set claude.key=\"sk-...\"&#96; or add via Firebase console.",
+            "lineNumber": 16
+          },
+          {
+            "text": "   - Build once: &#96;npm run build&#96;. Deploy with &#96;firebase deploy --only functions&#96; (after initializing Firebase in this repo).",
+            "lineNumber": 17
+          },
+          {
+            "lineNumber": 18
+          },
+          {
+            "text": "## Notes",
+            "lineNumber": 19
+          },
+          {
+            "text": "- Client calls the callable function named &#96;createAssistantMessage&#96; for Claude replies; it stores messages under &#96;topics/{topicId}/messages&#96;.",
+            "lineNumber": 20
+          },
+          {
+            "text": "- The function currently returns a placeholder response. Swap in the real Claude API call using the secret.",
+            "lineNumber": 21
+          },
+          {
+            "text": "- Keep Firebase keys client-side only for the web SDK; the Claude key must stay in Functions config.",
+            "lineNumber": 22
+          }
+        ]
+      },
+      "score": 0.20911620557308197
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./firestore.indexes.json",
+        "range": {
+          "startPosition": {},
+          "endPosition": {
+            "line": 22
+          }
+        },
+        "contents": "{\n  \"indexes\": [\n    {\n      \"collectionGroup\": \"topics\",\n      \"queryScope\": \"COLLECTION\",\n      \"fields\": [\n        { \"fieldPath\": \"ownerId\", \"order\": \"ASCENDING\" },\n        { \"fieldPath\": \"createdAt\", \"order\": \"DESCENDING\" }\n      ]\n    },\n    {\n      \"collectionGroup\": \"criteria\",\n      \"queryScope\": \"COLLECTION\",\n      \"fields\": [\n        { \"fieldPath\": \"ownerId\", \"order\": \"ASCENDING\" },\n        { \"fieldPath\": \"createdAt\", \"order\": \"DESCENDING\" }\n      ]\n    }\n  ],\n  \"fieldOverrides\": []\n}",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "{",
+            "lineNumber": 1
+          },
+          {
+            "text": "  \"indexes\": [",
+            "lineNumber": 2
+          },
+          {
+            "text": "    {",
+            "lineNumber": 3
+          },
+          {
+            "text": "      \"collectionGroup\": \"topics\",",
+            "lineNumber": 4
+          },
+          {
+            "text": "      \"queryScope\": \"COLLECTION\",",
+            "lineNumber": 5
+          },
+          {
+            "text": "      \"fields\": [",
+            "lineNumber": 6
+          },
+          {
+            "text": "        { \"fieldPath\": \"ownerId\", \"order\": \"ASCENDING\" },",
+            "lineNumber": 7
+          },
+          {
+            "text": "        { \"fieldPath\": \"createdAt\", \"order\": \"DESCENDING\" }",
+            "lineNumber": 8
+          },
+          {
+            "text": "      ]",
+            "lineNumber": 9
+          },
+          {
+            "text": "    },",
+            "lineNumber": 10
+          },
+          {
+            "text": "    {",
+            "lineNumber": 11
+          },
+          {
+            "text": "      \"collectionGroup\": \"criteria\",",
+            "lineNumber": 12
+          },
+          {
+            "text": "      \"queryScope\": \"COLLECTION\",",
+            "lineNumber": 13
+          },
+          {
+            "text": "      \"fields\": [",
+            "lineNumber": 14
+          },
+          {
+            "text": "        { \"fieldPath\": \"ownerId\", \"order\": \"ASCENDING\" },",
+            "lineNumber": 15
+          },
+          {
+            "text": "        { \"fieldPath\": \"createdAt\", \"order\": \"DESCENDING\" }",
+            "lineNumber": 16
+          },
+          {
+            "text": "      ]",
+            "lineNumber": 17
+          },
+          {
+            "text": "    }",
+            "lineNumber": 18
+          },
+          {
+            "text": "  ],",
+            "lineNumber": 19
+          },
+          {
+            "text": "  \"fieldOverrides\": []",
+            "lineNumber": 20
+          },
+          {
+            "text": "}",
+            "lineNumber": 21
+          }
+        ]
+      },
+      "score": 0.20726920664310455
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/types/criteria.ts",
+        "range": {
+          "startPosition": {},
+          "endPosition": {
+            "line": 7,
+            "column": 1
+          }
+        },
+        "contents": "export type Criteria = {\n  id: string\n  ownerId: string\n  title: string\n  topicIds: string[]\n  createdAt?: Date\n  updatedAt?: Date\n}",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "export type Criteria = {",
+            "lineNumber": 1,
+            "isSignature": true
+          },
+          {
+            "text": "  id: string",
+            "lineNumber": 2
+          },
+          {
+            "text": "  ownerId: string",
+            "lineNumber": 3
+          },
+          {
+            "text": "  title: string",
+            "lineNumber": 4
+          },
+          {
+            "text": "  topicIds: string[]",
+            "lineNumber": 5
+          },
+          {
+            "text": "  createdAt?: Date",
+            "lineNumber": 6
+          },
+          {
+            "text": "  updatedAt?: Date",
+            "lineNumber": 7
+          },
+          {
+            "text": "}",
+            "lineNumber": 8,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.2059537023305893
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/services/messages.ts",
+        "range": {
+          "startPosition": {},
+          "endPosition": {
+            "line": 42,
+            "column": 1
+          }
+        },
+        "contents": "import {\n  addDoc,\n  collection,\n  onSnapshot,\n  orderBy,\n  query,\n  serverTimestamp,\n} from 'firebase/firestore'\nimport { httpsCallable } from 'firebase/functions'\nimport { db, functionsClient } from '../lib/firebase'\nimport type { Message } from '../types/message'\n\nconst getMessagesCollection = (topicId: string) =&gt;\n  collection(db, 'topics', topicId, 'messages')\n\nexport function listenToMessages(\n  topicId: string,\n  onUpdate: (messages: Message[]) =&gt; void,\n  onError?: (error: unknown) =&gt; void,\n) {\n  \n}",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "import {",
+            "lineNumber": 1
+          },
+          {
+            "text": "  addDoc,",
+            "lineNumber": 2
+          },
+          {
+            "text": "  collection,",
+            "lineNumber": 3
+          },
+          {
+            "text": "  onSnapshot,",
+            "lineNumber": 4
+          },
+          {
+            "text": "  orderBy,",
+            "lineNumber": 5
+          },
+          {
+            "text": "  query,",
+            "lineNumber": 6
+          },
+          {
+            "text": "  serverTimestamp,",
+            "lineNumber": 7
+          },
+          {
+            "text": "} from 'firebase/firestore'",
+            "lineNumber": 8
+          },
+          {
+            "text": "import { httpsCallable } from 'firebase/functions'",
+            "lineNumber": 9
+          },
+          {
+            "text": "import { db, functionsClient } from '../lib/firebase'",
+            "lineNumber": 10
+          },
+          {
+            "text": "import type { Message } from '../types/message'",
+            "lineNumber": 11
+          },
+          {
+            "lineNumber": 12
+          },
+          {
+            "text": "const getMessagesCollection = (topicId: string) =&gt;",
+            "lineNumber": 13
+          },
+          {
+            "text": "  collection(db, 'topics', topicId, 'messages')",
+            "lineNumber": 14
+          },
+          {
+            "lineNumber": 15
+          },
+          {
+            "text": "export function listenToMessages(",
+            "lineNumber": 16,
+            "isSignature": true
+          },
+          {
+            "text": "  topicId: string,",
+            "lineNumber": 17,
+            "isSignature": true
+          },
+          {
+            "text": "  onUpdate: (messages: Message[]) =&gt; void,",
+            "lineNumber": 18,
+            "isSignature": true
+          },
+          {
+            "text": "  onError?: (error: unknown) =&gt; void,",
+            "lineNumber": 19,
+            "isSignature": true
+          },
+          {
+            "text": ") {",
+            "lineNumber": 20,
+            "isSignature": true
+          },
+          {
+            "text": "  ",
+            "lineNumber": 21
+          },
+          {
+            "text": "}",
+            "lineNumber": 43,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.20472615957260132
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/components/layout/AppShell.tsx",
+        "range": {
+          "startPosition": {
+            "column": 63
+          },
+          "endPosition": {
+            "line": 70,
+            "column": 1
+          }
+        },
+        "contents": "import { signOut } from 'firebase/auth'\nimport { auth } from '../../lib/firebase'\nimport { useAuth } from '../../features/auth/AuthProvider'\n\nexport function AppShell() {\n  const { user } = useAuth()\n  const navigate = useNavigate()\n\n  const handleSignOut = async () =&gt; {\n    await signOut(auth)\n    navigate('/login')\n  }\n\n  return (\n    &lt;div className=\"min-h-screen bg-white text-slate-900\"&gt;\n      &lt;header className=\"border-b border-slate-200 bg-white\"&gt;\n        &lt;div className=\"mx-auto flex max-w-6xl items-center justify-between px-6 py-4\"&gt;\n          &lt;div className=\"flex items-center gap-3\"&gt;\n            &lt;span className=\"text-xl font-semibold text-brand-DEFAULT\"&gt;\n              Clauterion\n            &lt;/span&gt;\n            &lt;nav className=\"flex items-center gap-4 text-sm text-slate-600\"&gt;\n              &lt;NavLink\n                to=\"/topics\"\n                end\n                className={({ isActive }) =&gt;\n                  [\n                    'rounded border border-slate-200 px-3 py-2 text-sm font-medium transition hover:text-slate-700 hover:bg-sand-50',\n                    isActive ? 'text-brand-dark' : 'text-slate-700',\n                  ].join(' ')\n                }\n              &gt;\n                Topics\n              &lt;/NavLink&gt;\n              &lt;NavLink\n                to=\"/criteria\"\n                end\n                className={({ isActive }) =&gt;\n                  [\n                    'rounded border border-slate-200 px-3 py-2 text-sm font-medium transition hover:text-slate-700 hover:bg-sand-50',\n                    isActive ? 'text-brand-dark' : 'text-slate-700',\n                  ].join(' ')\n                }\n              &gt;\n                Criteria\n              &lt;/NavLink&gt;\n            &lt;/nav&gt;\n          &lt;/div&gt;\n          &lt;div className=\"flex items-center gap-3 text-sm text-slate-600\"&gt;\n            &lt;div className=\"flex flex-col leading-tight\"&gt;\n}",
+        "signatures": {},
+        "detailedLines": [
+          {
+            "text": "import { signOut } from 'firebase/auth'",
+            "lineNumber": 2
+          },
+          {
+            "text": "import { auth } from '../../lib/firebase'",
+            "lineNumber": 3
+          },
+          {
+            "text": "import { useAuth } from '../../features/auth/AuthProvider'",
+            "lineNumber": 4
+          },
+          {
+            "lineNumber": 5
+          },
+          {
+            "text": "export function AppShell() {",
+            "lineNumber": 6,
+            "isSignature": true
+          },
+          {
+            "text": "  const { user } = useAuth()",
+            "lineNumber": 7
+          },
+          {
+            "text": "  const navigate = useNavigate()",
+            "lineNumber": 8
+          },
+          {
+            "lineNumber": 9
+          },
+          {
+            "text": "  const handleSignOut = async () =&gt; {",
+            "lineNumber": 10
+          },
+          {
+            "text": "    await signOut(auth)",
+            "lineNumber": 11
+          },
+          {
+            "text": "    navigate('/login')",
+            "lineNumber": 12
+          },
+          {
+            "text": "  }",
+            "lineNumber": 13
+          },
+          {
+            "lineNumber": 14
+          },
+          {
+            "text": "  return (",
+            "lineNumber": 15
+          },
+          {
+            "text": "    &lt;div className=\"min-h-screen bg-white text-slate-900\"&gt;",
+            "lineNumber": 16
+          },
+          {
+            "text": "      &lt;header className=\"border-b border-slate-200 bg-white\"&gt;",
+            "lineNumber": 17
+          },
+          {
+            "text": "        &lt;div className=\"mx-auto flex max-w-6xl items-center justify-between px-6 py-4\"&gt;",
+            "lineNumber": 18
+          },
+          {
+            "text": "          &lt;div className=\"flex items-center gap-3\"&gt;",
+            "lineNumber": 19
+          },
+          {
+            "text": "            &lt;span className=\"text-xl font-semibold text-brand-DEFAULT\"&gt;",
+            "lineNumber": 20
+          },
+          {
+            "text": "              Clauterion",
+            "lineNumber": 21
+          },
+          {
+            "text": "            &lt;/span&gt;",
+            "lineNumber": 22
+          },
+          {
+            "text": "            &lt;nav className=\"flex items-center gap-4 text-sm text-slate-600\"&gt;",
+            "lineNumber": 23
+          },
+          {
+            "text": "              &lt;NavLink",
+            "lineNumber": 24
+          },
+          {
+            "text": "                to=\"/topics\"",
+            "lineNumber": 25
+          },
+          {
+            "text": "                end",
+            "lineNumber": 26
+          },
+          {
+            "text": "                className={({ isActive }) =&gt;",
+            "lineNumber": 27
+          },
+          {
+            "text": "                  [",
+            "lineNumber": 28
+          },
+          {
+            "text": "                    'rounded border border-slate-200 px-3 py-2 text-sm font-medium transition hover:text-slate-700 hover:bg-sand-50',",
+            "lineNumber": 29
+          },
+          {
+            "text": "                    isActive ? 'text-brand-dark' : 'text-slate-700',",
+            "lineNumber": 30
+          },
+          {
+            "text": "                  ].join(' ')",
+            "lineNumber": 31
+          },
+          {
+            "text": "                }",
+            "lineNumber": 32
+          },
+          {
+            "text": "              &gt;",
+            "lineNumber": 33
+          },
+          {
+            "text": "                Topics",
+            "lineNumber": 34
+          },
+          {
+            "text": "              &lt;/NavLink&gt;",
+            "lineNumber": 35
+          },
+          {
+            "text": "              &lt;NavLink",
+            "lineNumber": 36
+          },
+          {
+            "text": "                to=\"/criteria\"",
+            "lineNumber": 37
+          },
+          {
+            "text": "                end",
+            "lineNumber": 38
+          },
+          {
+            "text": "                className={({ isActive }) =&gt;",
+            "lineNumber": 39
+          },
+          {
+            "text": "                  [",
+            "lineNumber": 40
+          },
+          {
+            "text": "                    'rounded border border-slate-200 px-3 py-2 text-sm font-medium transition hover:text-slate-700 hover:bg-sand-50',",
+            "lineNumber": 41
+          },
+          {
+            "text": "                    isActive ? 'text-brand-dark' : 'text-slate-700',",
+            "lineNumber": 42
+          },
+          {
+            "text": "                  ].join(' ')",
+            "lineNumber": 43
+          },
+          {
+            "text": "                }",
+            "lineNumber": 44
+          },
+          {
+            "text": "              &gt;",
+            "lineNumber": 45
+          },
+          {
+            "text": "                Criteria",
+            "lineNumber": 46
+          },
+          {
+            "text": "              &lt;/NavLink&gt;",
+            "lineNumber": 47
+          },
+          {
+            "text": "            &lt;/nav&gt;",
+            "lineNumber": 48
+          },
+          {
+            "text": "          &lt;/div&gt;",
+            "lineNumber": 49
+          },
+          {
+            "text": "          &lt;div className=\"flex items-center gap-3 text-sm text-slate-600\"&gt;",
+            "lineNumber": 50
+          },
+          {
+            "text": "            &lt;div className=\"flex flex-col leading-tight\"&gt;",
+            "lineNumber": 51
+          },
+          {
+            "text": "}",
+            "lineNumber": 71,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.20313860476016998
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./frontend/src/pages/Topics.tsx",
+        "range": {
+          "startPosition": {
+            "line": 8
+          },
+          "endPosition": {
+            "line": 166,
+            "column": 1
+          }
+        },
+        "contents": "export function TopicsPage() {\n\n      &lt;div&gt;\n        &lt;form\n          onSubmit={handleSubmit}\n          className=\"space-y-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm\"\n        &gt;\n          &lt;h2 className=\"text-xl font-semibold text-slate-900\"&gt;\n            Create new topic:\n          &lt;/h2&gt;\n\n          &lt;div className=\"space-y-2\"&gt;\n            &lt;label\n              htmlFor=\"topic-title\"\n              className=\"block text-sm font-medium text-slate-700\"\n            &gt;\n              Topic or area of interest:\n            &lt;/label&gt;\n            &lt;input\n              id=\"topic-title\"\n              type=\"text\"\n              className={&#96;w-full rounded-lg border px-3 py-2 text-sm shadow-sm outline-none transition ${\n                titleError\n                  ? 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-500/30'\n                  : 'border-slate-200 focus:border-brand focus:ring-2 focus:ring-brand/30'\n              }&#96;}\n              value={title}\n              onChange={(e) =&gt; {\n                setTitle(e.target.value)\n                if (titleError) setTitleError('')\n              }}\n            /&gt;\n            {titleError &amp;&amp; (\n              &lt;p className=\"text-sm text-red-600\"&gt;{titleError}&lt;/p&gt;\n            )}\n          &lt;/div&gt;\n\n          &lt;div className=\"space-y-2\"&gt;\n            &lt;label\n              htmlFor=\"topic-goals\"\n              className=\"block text-sm font-medium text-slate-700\"\n            &gt;\n              Goals:\n            &lt;/label&gt;\n            &lt;p className=\"text-sm text-slate-600\"&gt;\n              Why is this of interest and importance? What do you hope to\n              achieve?\n            &lt;/p&gt;\n            &lt;textarea\n              id=\"topic-goals\"\n              rows={4}\n              className=\"w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30\"\n              value={description}\n              onChange={(e) =&gt; setDescription(e.target.value)}\n            /&gt;\n          &lt;/div&gt;\n\n          &lt;button\n            type=\"submit\"\n}",
+        "signatures": {
+          "ranges": [
+            {
+              "startPosition": {
+                "line": 9,
+                "column": 1
+              },
+              "endPosition": {
+                "line": 9,
+                "column": 8
+              }
+            },
+            {
+              "startPosition": {
+                "line": 9,
+                "column": 8
+              },
+              "endPosition": {
+                "line": 10,
+                "column": 3
+              }
+            }
+          ]
+        },
+        "detailedLines": [
+          {
+            "text": "export function TopicsPage() {",
+            "lineNumber": 9,
+            "isSignature": true
+          },
+          {
+            "lineNumber": 92
+          },
+          {
+            "text": "      &lt;div&gt;",
+            "lineNumber": 93
+          },
+          {
+            "text": "        &lt;form",
+            "lineNumber": 94
+          },
+          {
+            "text": "          onSubmit={handleSubmit}",
+            "lineNumber": 95
+          },
+          {
+            "text": "          className=\"space-y-5 rounded-xl border border-slate-200 bg-white p-5 shadow-sm\"",
+            "lineNumber": 96
+          },
+          {
+            "text": "        &gt;",
+            "lineNumber": 97
+          },
+          {
+            "text": "          &lt;h2 className=\"text-xl font-semibold text-slate-900\"&gt;",
+            "lineNumber": 98
+          },
+          {
+            "text": "            Create new topic:",
+            "lineNumber": 99
+          },
+          {
+            "text": "          &lt;/h2&gt;",
+            "lineNumber": 100
+          },
+          {
+            "lineNumber": 101
+          },
+          {
+            "text": "          &lt;div className=\"space-y-2\"&gt;",
+            "lineNumber": 102
+          },
+          {
+            "text": "            &lt;label",
+            "lineNumber": 103
+          },
+          {
+            "text": "              htmlFor=\"topic-title\"",
+            "lineNumber": 104
+          },
+          {
+            "text": "              className=\"block text-sm font-medium text-slate-700\"",
+            "lineNumber": 105
+          },
+          {
+            "text": "            &gt;",
+            "lineNumber": 106
+          },
+          {
+            "text": "              Topic or area of interest:",
+            "lineNumber": 107
+          },
+          {
+            "text": "            &lt;/label&gt;",
+            "lineNumber": 108
+          },
+          {
+            "text": "            &lt;input",
+            "lineNumber": 109
+          },
+          {
+            "text": "              id=\"topic-title\"",
+            "lineNumber": 110
+          },
+          {
+            "text": "              type=\"text\"",
+            "lineNumber": 111
+          },
+          {
+            "text": "              className={&#96;w-full rounded-lg border px-3 py-2 text-sm shadow-sm outline-none transition ${",
+            "lineNumber": 112
+          },
+          {
+            "text": "                titleError",
+            "lineNumber": 113
+          },
+          {
+            "text": "                  ? 'border-red-300 focus:border-red-500 focus:ring-2 focus:ring-red-500/30'",
+            "lineNumber": 114
+          },
+          {
+            "text": "                  : 'border-slate-200 focus:border-brand focus:ring-2 focus:ring-brand/30'",
+            "lineNumber": 115
+          },
+          {
+            "text": "              }&#96;}",
+            "lineNumber": 116
+          },
+          {
+            "text": "              value={title}",
+            "lineNumber": 117
+          },
+          {
+            "text": "              onChange={(e) =&gt; {",
+            "lineNumber": 118
+          },
+          {
+            "text": "                setTitle(e.target.value)",
+            "lineNumber": 119
+          },
+          {
+            "text": "                if (titleError) setTitleError('')",
+            "lineNumber": 120
+          },
+          {
+            "text": "              }}",
+            "lineNumber": 121
+          },
+          {
+            "text": "            /&gt;",
+            "lineNumber": 122
+          },
+          {
+            "text": "            {titleError &amp;&amp; (",
+            "lineNumber": 123
+          },
+          {
+            "text": "              &lt;p className=\"text-sm text-red-600\"&gt;{titleError}&lt;/p&gt;",
+            "lineNumber": 124
+          },
+          {
+            "text": "            )}",
+            "lineNumber": 125
+          },
+          {
+            "text": "          &lt;/div&gt;",
+            "lineNumber": 126
+          },
+          {
+            "lineNumber": 127
+          },
+          {
+            "text": "          &lt;div className=\"space-y-2\"&gt;",
+            "lineNumber": 128
+          },
+          {
+            "text": "            &lt;label",
+            "lineNumber": 129
+          },
+          {
+            "text": "              htmlFor=\"topic-goals\"",
+            "lineNumber": 130
+          },
+          {
+            "text": "              className=\"block text-sm font-medium text-slate-700\"",
+            "lineNumber": 131
+          },
+          {
+            "text": "            &gt;",
+            "lineNumber": 132
+          },
+          {
+            "text": "              Goals:",
+            "lineNumber": 133
+          },
+          {
+            "text": "            &lt;/label&gt;",
+            "lineNumber": 134
+          },
+          {
+            "text": "            &lt;p className=\"text-sm text-slate-600\"&gt;",
+            "lineNumber": 135
+          },
+          {
+            "text": "              Why is this of interest and importance? What do you hope to",
+            "lineNumber": 136
+          },
+          {
+            "text": "              achieve?",
+            "lineNumber": 137
+          },
+          {
+            "text": "            &lt;/p&gt;",
+            "lineNumber": 138
+          },
+          {
+            "text": "            &lt;textarea",
+            "lineNumber": 139
+          },
+          {
+            "text": "              id=\"topic-goals\"",
+            "lineNumber": 140
+          },
+          {
+            "text": "              rows={4}",
+            "lineNumber": 141
+          },
+          {
+            "text": "              className=\"w-full rounded-lg border border-slate-200 px-3 py-2 text-sm shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30\"",
+            "lineNumber": 142
+          },
+          {
+            "text": "              value={description}",
+            "lineNumber": 143
+          },
+          {
+            "text": "              onChange={(e) =&gt; setDescription(e.target.value)}",
+            "lineNumber": 144
+          },
+          {
+            "text": "            /&gt;",
+            "lineNumber": 145
+          },
+          {
+            "text": "          &lt;/div&gt;",
+            "lineNumber": 146
+          },
+          {
+            "lineNumber": 147
+          },
+          {
+            "text": "          &lt;button",
+            "lineNumber": 148
+          },
+          {
+            "text": "            type=\"submit\"",
+            "lineNumber": 149
+          },
+          {
+            "text": "}",
+            "lineNumber": 167,
+            "isSignature": true
+          }
+        ]
+      },
+      "score": 0.20059779286384583
+    },
+    {
+      "codeBlock": {
+        "relativeWorkspacePath": "./functions/src/index.ts",
+        "range": {
+          "startPosition": {
+            "line": 12
+          },
+          "endPosition": {
+            "line": 140
+          }
+        },
+        "contents": "export const createAssistantMessage = \nasync (request) =&gt; {\n\n\n      const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {\n        method: 'POST',\n        headers: {\n          'content-type': 'application/json',\n          'x-api-key': claudeApiKey.value(),\n          'anthropic-version': '2023-06-01',\n        },\n        body: JSON.stringify({\n          // Sonnet 3.5 stable; adjust if you prefer a newer dated release.\n          model: 'claude-sonnet-4-5-20250929',\n          max_tokens: 512,\n          messages: [\n            ...historyMessages.map((msg) =&gt; ({\n              role: msg.role,\n              content: [{ type: 'text', text: msg.content }],\n            })),\n            { role: 'user', content: [{ type: 'text', text: content }] },\n          ],\n        }),\n      })\n\n      if (!anthropicResponse.ok) {\n        const errorText = await anthropicResponse.text()\n        const status = anthropicResponse.status\n        // Map some common HTTP statuses to clearer function errors.\n        if (status === 401 || status === 403) {\n          throw new HttpsError('permission-denied', 'Claude API key invalid or unauthorized')\n        }\n        if (status === 429) {\n          throw new HttpsError('resource-exhausted', 'Claude rate limit hit')\n        }\n        if (status &gt;= 500) {\n          throw new HttpsError('unavailable', 'Claude service unavailable')\n        }\n        throw new HttpsError('internal', &#96;Claude API error (${status}): ${errorText}&#96;)\n      }\n\n      const responseData = (await anthropicResponse.json()) as {\n        content: { type: string; text?: string }[]\n      }\n\n      const textPart = responseData.content.find((part) =&gt; part.type === 'text')\n      const assistantContent =\n        textPart &amp;&amp; 'text' in textPart &amp;&amp; textPart.text\n          ? textPart.text\n          : '[Claude] No text content returned from API.'\n\n      const assistantMessageRef = topicRef.collection('messages').doc()\n\n      await assistantMessageRef.set({\n        content: assistantContent,\n\n  }",
+        "signatures": {
+          "ranges": [
+            {
+              "startPosition": {
+                "line": 13,
+                "column": 1
+              },
+              "endPosition": {
+                "line": 13,
+                "column": 8
+              }
+            },
+            {
+              "startPosition": {
+                "line": 13,
+                "column": 8
+              },
+              "endPosition": {
+                "line": 13,
+                "column": 14
+              }
+            },
+            {
+              "startPosition": {
+                "line": 13,
+                "column": 14
+              },
+              "endPosition": {
+                "line": 13,
+                "column": 39
+              }
+            },
+            {
+              "startPosition": {
+                "line": 19,
+                "column": 3
+              },
+              "endPosition": {
+                "line": 20,
+                "column": 5
+              }
+            }
+          ]
+        },
+        "detailedLines": [
+          {
+            "text": "export const createAssistantMessage = ",
+            "lineNumber": 13
+          },
+          {
+            "text": "async (request) =&gt; {",
+            "lineNumber": 19
+          },
+          {
+            "lineNumber": 59
+          },
+          {
+            "lineNumber": 60
+          },
+          {
+            "text": "      const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {",
+            "lineNumber": 61
+          },
+          {
+            "text": "        method: 'POST',",
+            "lineNumber": 62
+          },
+          {
+            "text": "        headers: {",
+            "lineNumber": 63
+          },
+          {
+            "text": "          'content-type': 'application/json',",
+            "lineNumber": 64
+          },
+          {
+            "text": "          'x-api-key': claudeApiKey.value(),",
+            "lineNumber": 65
+          },
+          {
+            "text": "          'anthropic-version': '2023-06-01',",
+            "lineNumber": 66
+          },
+          {
+            "text": "        },",
+            "lineNumber": 67
+          },
+          {
+            "text": "        body: JSON.stringify({",
+            "lineNumber": 68
+          },
+          {
+            "text": "          // Sonnet 3.5 stable; adjust if you prefer a newer dated release.",
+            "lineNumber": 69
+          },
+          {
+            "text": "          model: 'claude-sonnet-4-5-20250929',",
+            "lineNumber": 70
+          },
+          {
+            "text": "          max_tokens: 512,",
+            "lineNumber": 71
+          },
+          {
+            "text": "          messages: [",
+            "lineNumber": 72
+          },
+          {
+            "text": "            ...historyMessages.map((msg) =&gt; ({",
+            "lineNumber": 73
+          },
+          {
+            "text": "              role: msg.role,",
+            "lineNumber": 74
+          },
+          {
+            "text": "              content: [{ type: 'text', text: msg.content }],",
+            "lineNumber": 75
+          },
+          {
+            "text": "            })),",
+            "lineNumber": 76
+          },
+          {
+            "text": "            { role: 'user', content: [{ type: 'text', text: content }] },",
+            "lineNumber": 77
+          },
+          {
+            "text": "          ],",
+            "lineNumber": 78
+          },
+          {
+            "text": "        }),",
+            "lineNumber": 79
+          },
+          {
+            "text": "      })",
+            "lineNumber": 80
+          },
+          {
+            "lineNumber": 81
+          },
+          {
+            "text": "      if (!anthropicResponse.ok) {",
+            "lineNumber": 82
+          },
+          {
+            "text": "        const errorText = await anthropicResponse.text()",
+            "lineNumber": 83
+          },
+          {
+            "text": "        const status = anthropicResponse.status",
+            "lineNumber": 84
+          },
+          {
+            "text": "        // Map some common HTTP statuses to clearer function errors.",
+            "lineNumber": 85
+          },
+          {
+            "text": "        if (status === 401 || status === 403) {",
+            "lineNumber": 86
+          },
+          {
+            "text": "          throw new HttpsError('permission-denied', 'Claude API key invalid or unauthorized')",
+            "lineNumber": 87
+          },
+          {
+            "text": "        }",
+            "lineNumber": 88
+          },
+          {
+            "text": "        if (status === 429) {",
+            "lineNumber": 89
+          },
+          {
+            "text": "          throw new HttpsError('resource-exhausted', 'Claude rate limit hit')",
+            "lineNumber": 90
+          },
+          {
+            "text": "        }",
+            "lineNumber": 91
+          },
+          {
+            "text": "        if (status &gt;= 500) {",
+            "lineNumber": 92
+          },
+          {
+            "text": "          throw new HttpsError('unavailable', 'Claude service unavailable')",
+            "lineNumber": 93
+          },
+          {
+            "text": "        }",
+            "lineNumber": 94
+          },
+          {
+            "text": "        throw new HttpsError('internal', &#96;Claude API error (${status}): ${errorText}&#96;)",
+            "lineNumber": 95
+          },
+          {
+            "text": "      }",
+            "lineNumber": 96
+          },
+          {
+            "lineNumber": 97
+          },
+          {
+            "text": "      const responseData = (await anthropicResponse.json()) as {",
+            "lineNumber": 98
+          },
+          {
+            "text": "        content: { type: string; text?: string }[]",
+            "lineNumber": 99
+          },
+          {
+            "text": "      }",
+            "lineNumber": 100
+          },
+          {
+            "lineNumber": 101
+          },
+          {
+            "text": "      const textPart = responseData.content.find((part) =&gt; part.type === 'text')",
+            "lineNumber": 102
+          },
+          {
+            "text": "      const assistantContent =",
+            "lineNumber": 103
+          },
+          {
+            "text": "        textPart &amp;&amp; 'text' in textPart &amp;&amp; textPart.text",
+            "lineNumber": 104
+          },
+          {
+            "text": "          ? textPart.text",
+            "lineNumber": 105
+          },
+          {
+            "text": "          : '[Claude] No text content returned from API.'",
+            "lineNumber": 106
+          },
+          {
+            "lineNumber": 107
+          },
+          {
+            "text": "      const assistantMessageRef = topicRef.collection('messages').doc()",
+            "lineNumber": 108
+          },
+          {
+            "lineNumber": 109
+          },
+          {
+            "text": "      await assistantMessageRef.set({",
+            "lineNumber": 110
+          },
+          {
+            "text": "        content: assistantContent,",
+            "lineNumber": 111
+          },
+          {
+            "lineNumber": 115
+          },
+          {
+            "text": "  }",
+            "lineNumber": 140
+          }
+        ]
+      },
+      "score": 0.19928014278411865
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
 
 ---
 

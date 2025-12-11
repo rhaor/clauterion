@@ -97,4 +97,25 @@ export async function deleteCriteria(criteriaId: string) {
   await deleteDoc(criteriaRef)
 }
 
+export async function removeTopicFromAllCriteria(topicId: string) {
+  const q = query(criteriaCollection, where('topicIds', 'array-contains', topicId))
+  const snapshot = await getDocs(q)
+  
+  const updates = snapshot.docs.map(async (criteriaDoc) => {
+    const data = criteriaDoc.data()
+    const currentTopicIds = (data.topicIds as string[]) ?? []
+    const updatedTopicIds = currentTopicIds.filter((id) => id !== topicId)
+    
+    if (updatedTopicIds.length !== currentTopicIds.length) {
+      const criteriaRef = doc(criteriaCollection, criteriaDoc.id)
+      await updateDoc(criteriaRef, {
+        topicIds: updatedTopicIds,
+        updatedAt: serverTimestamp(),
+      })
+    }
+  })
+  
+  await Promise.all(updates)
+}
+
 

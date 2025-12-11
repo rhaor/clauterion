@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   doc,
+  deleteDoc,
   getDoc,
   getDocs,
   orderBy,
@@ -78,4 +79,17 @@ export async function updateTopicStage(topicId: string, stage: Stage) {
   const topicRef = doc(topicsCollection, topicId)
   await updateDoc(topicRef, { stage })
 }
+
+export async function deleteTopic(topicId: string) {
+  // Import here to avoid circular dependency
+  const { removeTopicFromAllCriteria } = await import('./criteria')
+  
+  // Remove topicId from all criteria that reference it
+  await removeTopicFromAllCriteria(topicId)
+  
+  // Delete the topic (messages subcollection will be handled by Firestore rules or cascade delete)
+  const topicRef = doc(topicsCollection, topicId)
+  await deleteDoc(topicRef)
+}
+
 

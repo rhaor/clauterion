@@ -1,14 +1,15 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../features/auth/AuthProvider'
-import { createTopic, fetchTopics } from '../services/topics'
+import { createTopic, fetchTopics, deleteTopic } from '../services/topics'
 import type { Topic } from '../types/topic'
 
 export function TopicsPage() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const queryClient = useQueryClient()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -28,6 +29,20 @@ export function TopicsPage() {
       setTitleError('')
       queryClient.invalidateQueries({ queryKey: ['topics', user?.uid] })
       navigate(`/topics/${topicId}`)
+    },
+  })
+
+  const deleteTopicMutation = useMutation({
+    mutationFn: (topicId: string) => deleteTopic(topicId),
+    onSuccess: (_, deletedTopicId) => {
+      queryClient.invalidateQueries({ queryKey: ['topics', user?.uid] })
+      queryClient.invalidateQueries({ queryKey: ['criteria', user?.uid] })
+      queryClient.invalidateQueries({ queryKey: ['topic', deletedTopicId] })
+      
+      // If user is viewing the deleted topic, redirect to topics page
+      if (location.pathname.startsWith(`/topics/${deletedTopicId}`)) {
+        navigate('/topics', { replace: true })
+      }
     },
   })
 
@@ -71,20 +86,35 @@ export function TopicsPage() {
             </div>
           )}
           {topics?.map((topic: Topic) => (
-            <button
+            <div
               key={topic.id}
-              onClick={() => navigate(`/topics/${topic.id}`)}
-              className="flex w-full flex-col items-start gap-2 rounded-xl border border-slate-200 bg-white p-5 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow"
+              className="flex w-full flex-col items-start gap-2 rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow"
             >
-              <div className="flex w-full items-center justify-between">
-                <h3 className="text-lg font-semibold text-slate-900">
-                  {topic.title}
-                </h3>
+              <div className="flex w-full items-center justify-between gap-3">
+                <button
+                  onClick={() => navigate(`/topics/${topic.id}`)}
+                  className="flex-1 text-left"
+                >
+                  <h3 className="text-lg font-semibold text-slate-900">
+                    {topic.title}
+                  </h3>
+                  {topic.description && (
+                    <p className="text-sm text-slate-600">{topic.description}</p>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    deleteTopicMutation.mutate(topic.id)
+                  }}
+                  disabled={deleteTopicMutation.isPending}
+                  className="text-sm font-medium text-red-600 transition hover:text-red-700 disabled:opacity-60"
+                >
+                  {deleteTopicMutation.isPending ? 'Deleting…' : 'Delete'}
+                </button>
               </div>
-              {topic.description && (
-                <p className="text-sm text-slate-600">{topic.description}</p>
-              )}
-            </button>
+            </div>
           ))}
         </div>
       </div>
