@@ -685,3 +685,210 @@ Return ONLY a JSON array of exactly 3 strings, no other text. Format: ["suggesti
     }
   },
 )
+
+// Schema for generating Deploy stage feedback
+const generateDeployFeedbackSchema = z.object({
+  topicId: z.string().min(1, 'topicId is required'),
+  messageId: z.string().min(1, 'messageId is required'), // The 2nd AI response message ID
+})
+
+export const generateDeployFeedback = onCall(
+  {
+    cors: true,
+    region: 'us-central1',
+    secrets: [claudeApiKey],
+  },
+  async (request) => {
+    try {
+      const { auth, data } = request
+
+      if (!auth) {
+        throw new HttpsError('unauthenticated', 'Sign in to call this function')
+      }
+
+      const parsed = generateDeployFeedbackSchema.safeParse(data)
+      if (!parsed.success) {
+        throw new HttpsError('invalid-argument', parsed.error.message)
+      }
+
+      const { topicId, messageId } = parsed.data
+
+      const topicRef = db.collection('topics').doc(topicId)
+      const topicSnapshot = await topicRef.get()
+
+      if (!topicSnapshot.exists) {
+        throw new HttpsError('not-found', 'Topic not found')
+      }
+
+      const topicData = topicSnapshot.data()
+      if (topicData?.ownerId !== auth.uid) {
+        throw new HttpsError('permission-denied', 'You do not own this topic')
+      }
+
+      const topicTitle = topicData?.title ?? 'this topic'
+      const topicDescription = topicData?.description
+
+      // Get all messages for this topic, ordered by creation time
+      const messagesSnapshot = await topicRef.collection('messages').orderBy('createdAt', 'asc').get()
+      const allMessages: Array<{ id: string; role: string; content: string }> = messagesSnapshot.docs.map((doc) => {
+        const data = doc.data()
+        return {
+          id: doc.id,
+          role: (data.role as string) || '',
+          content: (data.content as string) || '',
+        }
+      })
+
+      // Find the 2nd AI response (the messageId provided)
+      const secondAiResponseIndex = allMessages.findIndex((msg) => msg.id === messageId && msg.role === 'assistant')
+      if (secondAiResponseIndex === -1) {
+        throw new HttpsError('not-found', 'Message not found or not an assistant message')
+      }
+
+      // Get the last 4 messages (2 user + 2 assistant) for the 2-turn conversation
+      const conversationMessages = allMessages.slice(Math.max(0, secondAiResponseIndex - 3), secondAiResponseIndex + 1)
+      
+      // Verify we have exactly 4 messages (user1, assistant1, user2, assistant2)
+      if (conversationMessages.length !== 4) {
+        throw new HttpsError('invalid-argument', 'Need exactly 2 turns of conversation (4 messages)')
+      }
+
+      const [userMessage1, assistantMessage1, userMessage2, assistantMessage2] = conversationMessages
+
+      // Verify the order is correct
+      if (
+        userMessage1.role !== 'user' ||
+        assistantMessage1.role !== 'assistant' ||
+        userMessage2.role !== 'user' ||
+        assistantMessage2.role !== 'assistant'
+      ) {
+        throw new HttpsError('invalid-argument', 'Invalid message order')
+      }
+
+      // Ensure all messages have content
+      if (!userMessage1.content || !assistantMessage1.content || !userMessage2.content || !assistantMessage2.content) {
+        throw new HttpsError('invalid-argument', 'One or more messages are missing content')
+      }
+
+      // Get criteria for this topic
+      const criteriaSnapshot = await db
+        .collection('criteria')
+        .where('topicIds', 'array-contains', topicId)
+        .get()
+      
+      const criteria = criteriaSnapshot.docs.map((doc) => ({
+        id: doc.id,
+        title: doc.data().title,
+      }))
+
+      // Build feedback prompt
+      const criteriaList = criteria.length > 0 
+        ? criteria.map((c) => `- ${c.title}`).join('\n')
+        : 'No specific criteria have been defined yet.'
+
+      const feedbackPrompt = `You are providing feedback to help a learner reflect on their conversation with an AI assistant.
+
+Topic: "${topicTitle}"
+${topicDescription ? `Learning Goals: ${topicDescription}` : ''}
+
+The learner's criteria for evaluating responses:
+${criteriaList}
+
+Conversation:
+Turn 1:
+User: "${String(userMessage1.content || '').replace(/"/g, '\\"')}"
+Assistant: "${String(assistantMessage1.content || '').replace(/"/g, '\\"')}"
+
+Turn 2:
+User: "${String(userMessage2.content || '').replace(/"/g, '\\"')}"
+Assistant: "${String(assistantMessage2.content || '').replace(/"/g, '\\"')}"
+
+Analyze this conversation and provide constructive feedback. Consider:
+1. Did the learner improve on something related to their criteria in the second turn?
+2. Was there evidence that they were thinking about one or more of their criteria when asking the follow-up?
+3. How was this reflected in the AI's response?
+
+Provide feedback that either:
+- CELEBRATES wins if their follow-up related to their criteria and showed improvement/engagement
+- OR provides HELPFUL GUIDANCE on how they could consider their criteria in relation to this conversation and the AI response
+
+Be specific, encouraging, and actionable. Write 2-3 sentences that help them understand what they did well or how they could better align their questions with their learning criteria.`
+
+      const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': claudeApiKey.value(),
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-5-20250929',
+          max_tokens: 400,
+          messages: [
+            {
+              role: 'user',
+              content: [{ type: 'text', text: feedbackPrompt }],
+            },
+          ],
+        }),
+      })
+
+      if (!anthropicResponse.ok) {
+        const errorText = await anthropicResponse.text()
+        const status = anthropicResponse.status
+        if (status === 401 || status === 403) {
+          throw new HttpsError('permission-denied', 'Claude API key invalid or unauthorized')
+        }
+        if (status === 429) {
+          throw new HttpsError('resource-exhausted', 'Claude rate limit hit')
+        }
+        if (status >= 500) {
+          throw new HttpsError('unavailable', 'Claude service unavailable')
+        }
+        throw new HttpsError('internal', `Claude API error (${status}): ${errorText}`)
+      }
+
+      const responseData = (await anthropicResponse.json()) as {
+        content: { type: string; text?: string }[]
+      }
+
+      const textPart = responseData.content.find((part) => part.type === 'text')
+      const feedbackContent =
+        textPart && 'text' in textPart && textPart.text
+          ? textPart.text.trim()
+          : '[Claude] No feedback content returned from API.'
+
+      // Store feedback in Firestore subcollection
+      const messageRef = topicRef.collection('messages').doc(messageId)
+      const feedbackRef = messageRef.collection('feedback').doc()
+      await feedbackRef.set({
+        content: feedbackContent,
+        createdAt: FieldValue.serverTimestamp(),
+        topicId,
+        messageId,
+      })
+
+      return {
+        feedbackId: feedbackRef.id,
+        content: feedbackContent,
+      }
+    } catch (error) {
+      logger.error('generateDeployFeedback failed', error)
+
+      const message = error instanceof Error ? error.message : 'Unknown error'
+      if (message.includes('invalid_api_key') || message.includes('Unauthorized')) {
+        throw new HttpsError('permission-denied', 'Claude API key invalid')
+      }
+      if (message.toLowerCase().includes('rate limit')) {
+        throw new HttpsError('resource-exhausted', 'Claude rate limit hit')
+      }
+      if (message.toLowerCase().includes('timeout')) {
+        throw new HttpsError('deadline-exceeded', 'Claude request timed out')
+      }
+      if (error instanceof HttpsError) {
+        throw error
+      }
+      throw new HttpsError('internal', message)
+    }
+  },
+)

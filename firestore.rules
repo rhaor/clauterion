@@ -29,13 +29,26 @@ service cloud.firestore {
     match /topics/{topicId} {
       allow read: if isOwnerExisting();
       allow create: if isOwnerNew();
-      allow update: if isOwnerExisting() && isOwnerNew();
+      // Allow updates if user owns the topic (works for partial updates like stage changes)
+      allow update: if isOwnerExisting();
       allow delete: if isOwnerExisting();
 
       match /messages/{messageId} {
         allow read, create, update, delete: if topicOwner(topicId);
 
         match /evaluations/{evaluationId} {
+          allow read, create, update, delete: if topicOwner(topicId);
+        }
+
+        match /feedback/{feedbackId} {
+          allow read, create, update, delete: if topicOwner(topicId);
+        }
+
+        match /discoverData/{pairId} {
+          allow read, create, update, delete: if topicOwner(topicId);
+        }
+
+        match /defineSuggestions/{suggestionId} {
           allow read, create, update, delete: if topicOwner(topicId);
         }
       }

@@ -10,14 +10,19 @@ import {
   requestClaudeReply,
   generateSuggestions,
   generateDefineSuggestions,
+  generateDeployFeedback,
 } from '../services/messages'
 import { saveEvaluation, listenToEvaluations } from '../services/evaluations'
 import { fetchCriteria, createCriteria } from '../services/criteria'
 import { fetchTopicById, updateTopicStage } from '../services/topics'
+import { listenToFeedback } from '../services/feedback'
+import { listenToDiscoverData, saveDiscoverData } from '../services/discoverData'
+import { listenToDefineSuggestions, saveDefineSuggestions } from '../services/defineSuggestions'
 import type { Message } from '../types/message'
 import type { Stage } from '../types/topic'
 import type { Criteria } from '../types/criteria'
 import type { Evaluation, EvaluationValue } from '../types/evaluation'
+import type { Feedback } from '../services/feedback'
 
 type DefineStageUIProps = {
   messageId: string
@@ -148,6 +153,8 @@ function DefineStageUI({
           next.set(messageId, result.suggestions)
           return next
         })
+        // Save to Firestore
+        await saveDefineSuggestions(topicId, messageId, result.suggestions)
       } catch (error) {
         console.error('Failed to generate Define suggestions:', error)
         throw error // Re-throw so React Query can handle it
@@ -345,6 +352,9 @@ export function TopicDetailPage() {
   const [selectedDiscoverMessages, setSelectedDiscoverMessages] = useState<Map<string, string>>(new Map())
   const [discoverSuggestions, setDiscoverSuggestions] = useState<Map<string, string[]>>(new Map())
   const [discoverSuggestionsLoading, setDiscoverSuggestionsLoading] = useState<Map<string, boolean>>(new Map())
+  const [discoverDimensions, setDiscoverDimensions] = useState<Map<string, string>>(new Map())
+  // Discover evaluations - keyed by pairId-criteriaId
+  const [discoverEvaluations, setDiscoverEvaluations] = useState<Map<string, Evaluation>>(new Map())
   // Define stage state
   const [evaluations, setEvaluations] = useState<Map<string, Evaluation>>(new Map())
   // Define suggestions keyed by messageId to persist per message
@@ -353,6 +363,12 @@ export function TopicDetailPage() {
   // New criteria input state keyed by messageId
   const [newCriteriaTitle, setNewCriteriaTitle] = useState<Map<string, string>>(new Map())
   const [showNewCriteriaInput, setShowNewCriteriaInput] = useState<Map<string, boolean>>(new Map())
+  // Deploy stage feedback - keyed by messageId (the 2nd AI response)
+  const [deployFeedback, setDeployFeedback] = useState<Map<string, Feedback>>(new Map())
+  const [deployFeedbackGenerating, setDeployFeedbackGenerating] = useState<Set<string>>(new Set())
+  // Criteria box state
+  const [showCriteriaInput, setShowCriteriaInput] = useState(false)
+  const [newCriteriaTitleBox, setNewCriteriaTitleBox] = useState('')
 
   useEffect(() => {
     if (!topicId?.trim() || !user?.uid) return
@@ -473,7 +489,7 @@ export function TopicDetailPage() {
   })
 
   const suggestionsMutation = useMutation({
-    mutationFn: async ({ selectedMessageId, pairId }: { selectedMessageId: string; pairId: string }) => {
+    mutationFn: async ({ selectedMessageId, pairId, pairMessageId }: { selectedMessageId: string; pairId: string; pairMessageId: string }) => {
       if (!topicId) throw new Error('Missing topic')
       setDiscoverSuggestionsLoading((prev) => {
         const next = new Map(prev)
@@ -487,6 +503,10 @@ export function TopicDetailPage() {
           next.set(pairId, result.suggestions)
           return next
         })
+        // Save to Firestore
+        await saveDiscoverData(topicId, pairMessageId, pairId, {
+          suggestions: result.suggestions,
+        })
       } finally {
         setDiscoverSuggestionsLoading((prev) => {
           const next = new Map(prev)
@@ -497,15 +517,19 @@ export function TopicDetailPage() {
     },
   })
 
-  const handleSelectDiscoverMessage = (messageId: string, pairId: string) => {
+  const handleSelectDiscoverMessage = async (messageId: string, pairId: string, pairMessageId: string) => {
     setSelectedDiscoverMessages((prev) => {
       const next = new Map(prev)
       next.set(pairId, messageId)
       return next
     })
+    // Save selection to Firestore
+    await saveDiscoverData(topicId!, pairMessageId, pairId, {
+      selectedMessageId: messageId,
+    })
     // Only generate suggestions if we don't already have them for this pair
     if (!discoverSuggestions.has(pairId)) {
-      suggestionsMutation.mutate({ selectedMessageId: messageId, pairId })
+      suggestionsMutation.mutate({ selectedMessageId: messageId, pairId, pairMessageId })
     }
   }
 
@@ -523,8 +547,34 @@ export function TopicDetailPage() {
     return <p className="text-slate-600">No topic selected.</p>
   }
 
+  const queryClient = useQueryClient()
+  
   const stageMutation = useMutation({
     mutationFn: (nextStage: Stage) => updateTopicStage(topicId!, nextStage),
+    onSuccess: () => {
+      // Invalidate and refetch topic to get updated stage
+      queryClient.invalidateQueries({ queryKey: ['topic', topicId] })
+    },
+    onError: (error) => {
+      console.error('Failed to update topic stage:', error)
+    },
+  })
+
+  const createCriteriaBoxMutation = useMutation({
+    mutationFn: async (title: string) => {
+      if (!user || !topicId) throw new Error('Not authenticated or missing topic')
+      const criteriaId = await createCriteria(user.uid, {
+        title,
+        topicIds: [topicId],
+      })
+      // Refresh criteria list
+      queryClient.invalidateQueries({ queryKey: ['criteria', user.uid] })
+      return criteriaId
+    },
+    onSuccess: () => {
+      setNewCriteriaTitleBox('')
+      setShowCriteriaInput(false)
+    },
   })
 
   useEffect(() => {
@@ -565,6 +615,239 @@ export function TopicDetailPage() {
       unsubscribes.forEach((unsub) => unsub())
     }
   }, [topicId, sortedMessages])
+
+  // Listen to Discover data for Discover pairs
+  useEffect(() => {
+    if (!topicId) return
+
+    const unsubscribes: Array<() => void> = []
+    sortedMessages.forEach((msg) => {
+      // Listen to Discover data for messages with discoverPairId
+      if (msg.role === 'assistant' && msg.discoverPairId && msg.discoverVariant === 'a') {
+        // Use message a as the storage location for the pair
+        const unsubscribe = listenToDiscoverData(
+          topicId,
+          msg.id,
+          msg.discoverPairId,
+          (data) => {
+            if (data) {
+              setSelectedDiscoverMessages((prev) => {
+                const next = new Map(prev)
+                if (data.selectedMessageId) {
+                  next.set(data.pairId, data.selectedMessageId)
+                }
+                return next
+              })
+              setDiscoverSuggestions((prev) => {
+                const next = new Map(prev)
+                if (data.suggestions.length > 0) {
+                  next.set(data.pairId, data.suggestions)
+                }
+                return next
+              })
+              setDiscoverDimensions((prev) => {
+                const next = new Map(prev)
+                // Use dimension from discoverData if available, otherwise from message
+                const dimension = data.dimension || msg.discoverDimension
+                if (dimension) {
+                  next.set(data.pairId, dimension)
+                }
+                return next
+              })
+            }
+          },
+          (error) => {
+            console.error('Error listening to Discover data', error)
+          },
+        )
+        unsubscribes.push(unsubscribe)
+      }
+    })
+
+    return () => {
+      unsubscribes.forEach((unsub) => unsub())
+    }
+  }, [topicId, sortedMessages])
+
+  // Listen to evaluations for Discover pairs
+  useEffect(() => {
+    if (!topicId) return
+
+    const unsubscribes: Array<() => void> = []
+    sortedMessages.forEach((msg) => {
+      // Listen to evaluations for Discover pairs (using message a as storage)
+      if (msg.role === 'assistant' && msg.discoverPairId && msg.discoverVariant === 'a') {
+        const unsubscribe = listenToEvaluations(
+          topicId,
+          msg.id,
+          (evals) => {
+            setDiscoverEvaluations((prev) => {
+              const newMap = new Map(prev)
+              evals.forEach((evaluation) => {
+                // Key by pairId-criteriaId
+                const pairId = msg.discoverPairId!
+                const evalKey = `${pairId}-${evaluation.criteriaId}`
+                newMap.set(evalKey, evaluation)
+              })
+              return newMap
+            })
+          },
+          (error) => {
+            console.error('Error listening to Discover evaluations', error)
+          },
+        )
+        unsubscribes.push(unsubscribe)
+      }
+    })
+
+    return () => {
+      unsubscribes.forEach((unsub) => unsub())
+    }
+  }, [topicId, sortedMessages])
+
+  // Listen to Define suggestions for Define stage messages
+  useEffect(() => {
+    if (!topicId) return
+
+    const unsubscribes: Array<() => void> = []
+    sortedMessages.forEach((msg) => {
+      // Listen to suggestions for messages generated in Define stage
+      if (msg.role === 'assistant' && (msg.generatedStage === 'Define' || (!msg.generatedStage && (topic?.stage === 'Define' || stage === 'Define')))) {
+        const unsubscribe = listenToDefineSuggestions(
+          topicId,
+          msg.id,
+          (data) => {
+            if (data) {
+              setDefineSuggestions((prev) => {
+                const next = new Map(prev)
+                next.set(msg.id, data.suggestions)
+                return next
+              })
+            }
+          },
+          (error) => {
+            console.error('Error listening to Define suggestions', error)
+          },
+        )
+        unsubscribes.push(unsubscribe)
+      }
+    })
+
+    return () => {
+      unsubscribes.forEach((unsub) => unsub())
+    }
+  }, [topicId, sortedMessages, topic?.stage, stage])
+
+  // Listen to feedback for assistant messages generated in Deploy stage
+  useEffect(() => {
+    if (!topicId) return
+
+    const unsubscribes: Array<() => void> = []
+    sortedMessages.forEach((msg) => {
+      // Listen to feedback for messages generated in Deploy stage (regardless of current stage)
+      if (msg.role === 'assistant' && (msg.generatedStage === 'Deploy' || (!msg.generatedStage && (topic?.stage === 'Deploy' || stage === 'Deploy')))) {
+        const unsubscribe = listenToFeedback(
+          topicId,
+          msg.id,
+          (feedback) => {
+            if (feedback) {
+              setDeployFeedback((prev) => {
+                const next = new Map(prev)
+                next.set(msg.id, feedback)
+                return next
+              })
+            }
+          },
+          (error) => {
+            console.error('Error listening to feedback', error)
+          },
+        )
+        unsubscribes.push(unsubscribe)
+      }
+    })
+
+    return () => {
+      unsubscribes.forEach((unsub) => unsub())
+    }
+  }, [topicId, sortedMessages, topic?.stage, stage])
+
+  // Detect 2nd turn completion in Deploy stage and generate feedback
+  useEffect(() => {
+    if (!topicId || !sortedMessages.length) return
+    
+    // Only generate feedback if current stage is Deploy
+    const currentStage = topic?.stage || stage
+    if (currentStage !== 'Deploy') return
+
+    // Find assistant messages generated in Deploy stage
+    const deployAssistantMessages = sortedMessages.filter(
+      (msg) =>
+        msg.role === 'assistant' &&
+        (msg.generatedStage === 'Deploy' || (!msg.generatedStage && currentStage === 'Deploy')) &&
+        !msg.discoverPairId, // Exclude Discover pairs
+    )
+
+    // Check each Deploy assistant message to see if it's the 2nd turn
+    deployAssistantMessages.forEach((assistantMsg) => {
+      // Find its position in the full message list
+      const msgIndex = sortedMessages.findIndex((m) => m.id === assistantMsg.id)
+      
+      // Check if this is the 2nd assistant message in a sequence
+      // We need: user1, assistant1, user2, assistant2 (4 messages total)
+      if (msgIndex >= 3) {
+        const prevMessages = sortedMessages.slice(msgIndex - 3, msgIndex + 1)
+        const [user1, assistant1, user2, assistant2] = prevMessages
+
+        // Verify it's a valid 2-turn conversation
+        if (
+          user1?.role === 'user' &&
+          assistant1?.role === 'assistant' &&
+          user2?.role === 'user' &&
+          assistant2?.role === 'assistant' &&
+          assistant2.id === assistantMsg.id &&
+          // Check if both assistant messages are from Deploy stage
+          (assistant1.generatedStage === 'Deploy' || (!assistant1.generatedStage && currentStage === 'Deploy')) &&
+          (assistant2.generatedStage === 'Deploy' || (!assistant2.generatedStage && currentStage === 'Deploy'))
+        ) {
+          // Check if feedback already exists or is being generated
+          if (!deployFeedback.has(assistantMsg.id) && !deployFeedbackGenerating.has(assistantMsg.id)) {
+            // Generate feedback
+            setDeployFeedbackGenerating((prev) => {
+              const next = new Set(prev)
+              next.add(assistantMsg.id)
+              return next
+            })
+
+            generateDeployFeedback({
+              topicId,
+              messageId: assistantMsg.id,
+            })
+              .then((result) => {
+                setDeployFeedback((prev) => {
+                  const next = new Map(prev)
+                  next.set(assistantMsg.id, {
+                    id: result.feedbackId,
+                    messageId: assistantMsg.id,
+                    content: result.content,
+                  })
+                  return next
+                })
+              })
+              .catch((error) => {
+                console.error('Failed to generate Deploy feedback:', error)
+              })
+              .finally(() => {
+                setDeployFeedbackGenerating((prev) => {
+                  const next = new Set(prev)
+                  next.delete(assistantMsg.id)
+                  return next
+                })
+              })
+          }
+        }
+      }
+    })
+  }, [topicId, sortedMessages, topic?.stage, stage, deployFeedback, deployFeedbackGenerating])
 
   return (
     <div className="flex flex-col gap-6">
@@ -617,8 +900,18 @@ export function TopicDetailPage() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
-            Criteria
+          <div className="mb-2 flex items-center justify-between">
+            <div className="text-sm font-semibold uppercase tracking-wide text-slate-500">
+              Criteria
+            </div>
+            {!showCriteriaInput && (
+              <button
+                onClick={() => setShowCriteriaInput(true)}
+                className="text-xs font-medium text-brand transition hover:text-brand-dark"
+              >
+                Add criteria
+              </button>
+            )}
           </div>
           {criteriaLoading && (
             <p className="text-sm text-slate-600">Loading criteria…</p>
@@ -649,10 +942,56 @@ export function TopicDetailPage() {
                   </div>
                 ))}
               {criteria?.filter((c) => c.topicIds.includes(topicId ?? ''))
-                .length === 0 && (
+                .length === 0 && !showCriteriaInput && (
                 <p className="text-sm text-slate-600">
                   No criteria linked to this topic yet.
                 </p>
+              )}
+              {showCriteriaInput && (
+                <div className="space-y-2 rounded-lg border border-slate-200 bg-sand-50 p-3">
+                  <input
+                    type="text"
+                    value={newCriteriaTitleBox}
+                    onChange={(e) => setNewCriteriaTitleBox(e.target.value)}
+                    placeholder="Enter criteria title..."
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && newCriteriaTitleBox.trim()) {
+                        createCriteriaBoxMutation.mutate(newCriteriaTitleBox.trim())
+                      }
+                    }}
+                    autoFocus
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (newCriteriaTitleBox.trim()) {
+                          createCriteriaBoxMutation.mutate(newCriteriaTitleBox.trim())
+                        }
+                      }}
+                      disabled={createCriteriaBoxMutation.isPending || !newCriteriaTitleBox.trim()}
+                      className="rounded-lg bg-brand px-3 py-1 text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-50"
+                    >
+                      {createCriteriaBoxMutation.isPending ? 'Creating...' : 'Create'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowCriteriaInput(false)
+                        setNewCriteriaTitleBox('')
+                      }}
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 transition hover:bg-slate-50"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {createCriteriaBoxMutation.error && (
+                    <p className="text-xs text-red-600">
+                      {createCriteriaBoxMutation.error instanceof Error
+                        ? createCriteriaBoxMutation.error.message
+                        : 'Unable to create criteria'}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -677,12 +1016,6 @@ export function TopicDetailPage() {
               No messages yet. Send one to start.
             </div>
           )}
-          {sendMutation.isPending && (
-            <div className="flex items-center gap-2 text-sm text-slate-600">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-              Claude is replying…
-            </div>
-          )}
           {/* Render message timeline */}
           {messageTimeline.map((item, index) => {
             if (item.type === 'pair') {
@@ -692,8 +1025,10 @@ export function TopicDetailPage() {
               if (!pair.a && !pair.b) return null
               // Get pairId for this pair (needed for state management)
               const pairId = pair.a?.discoverPairId || pair.b?.discoverPairId || `pair-${index}`
+              // Use message a as the storage location for the pair
+              const pairMessageId = pair.a?.id || pair.b?.id || ''
               
-              const renderMessageCard = (msg: Message | undefined, variant: 'a' | 'b', currentPairId: string) => {
+              const renderMessageCard = (msg: Message | undefined, variant: 'a' | 'b', currentPairId: string, storageMessageId: string) => {
                 if (!msg) return null
                 const selectedMessageId = selectedDiscoverMessages.get(currentPairId)
                 const isSelected = selectedMessageId === msg.id
@@ -705,7 +1040,7 @@ export function TopicDetailPage() {
                         ? 'border-brand bg-brand-light ring-2 ring-brand'
                         : 'border-brand/40 bg-brand-light text-brand-dark hover:border-brand/60'
                     }`}
-                    onClick={() => handleSelectDiscoverMessage(msg.id, currentPairId)}
+                    onClick={() => handleSelectDiscoverMessage(msg.id, currentPairId, storageMessageId)}
                   >
                     <div className="flex items-center justify-between text-xs text-slate-500">
                       <span className="font-semibold uppercase tracking-wide">
@@ -768,22 +1103,144 @@ export function TopicDetailPage() {
               const selectedMessageId = selectedDiscoverMessages.get(pairId)
               const pairSuggestions = discoverSuggestions.get(pairId) || []
               const isLoading = discoverSuggestionsLoading.get(pairId) || false
+              // Initialize dimension from message if not in discoverData
+              const pairDimension = discoverDimensions.get(pairId) || pair.dimension || pair.a?.discoverDimension || pair.b?.discoverDimension || ''
 
               return (
                 <div key={`pair-${pairId}`} className="space-y-3">
                   <div className="grid gap-3 md:grid-cols-2">
-                    {renderMessageCard(pair.a, 'a', pairId)}
-                    {renderMessageCard(pair.b, 'b', pairId)}
+                    {renderMessageCard(pair.a, 'a', pairId, pairMessageId)}
+                    {renderMessageCard(pair.b, 'b', pairId, pairMessageId)}
                   </div>
                   {selectedMessageId && (pair.a?.id === selectedMessageId || pair.b?.id === selectedMessageId) && (
                     <>
-                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">
-                          Variation Dimension
-                        </p>
-                        <p className="text-sm text-slate-800 capitalize">{pair.dimension}</p>
-                      </div>
                       <div className="space-y-2">
+                        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
+                            Variation Dimension (Add Criteria)
+                          </p>
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              value={pairDimension}
+                              onChange={(e) => {
+                                setDiscoverDimensions((prev) => {
+                                  const next = new Map(prev)
+                                  next.set(pairId, e.target.value)
+                                  return next
+                                })
+                              }}
+                              onBlur={() => {
+                                if (pairDimension.trim()) {
+                                  // Save dimension to discoverData
+                                  saveDiscoverData(topicId!, pairMessageId, pairId, {
+                                    dimension: pairDimension,
+                                  })
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter' && pairDimension.trim()) {
+                                  e.preventDefault()
+                                  // Save dimension
+                                  saveDiscoverData(topicId!, pairMessageId, pairId, {
+                                    dimension: pairDimension,
+                                  })
+                                  // Create criteria with the dimension as the title
+                                  createCriteriaBoxMutation.mutate(pairDimension.trim())
+                                  // Clear the input after creating criteria
+                                  setDiscoverDimensions((prev) => {
+                                    const next = new Map(prev)
+                                    next.set(pairId, '')
+                                    return next
+                                  })
+                                }
+                              }}
+                              className="flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-800"
+                              placeholder="Enter variation dimension to create criteria..."
+                            />
+                            <button
+                              onClick={() => {
+                                if (pairDimension.trim()) {
+                                  // Save dimension
+                                  saveDiscoverData(topicId!, pairMessageId, pairId, {
+                                    dimension: pairDimension,
+                                  })
+                                  // Create criteria with the dimension as the title
+                                  createCriteriaBoxMutation.mutate(pairDimension.trim())
+                                  // Clear the input after creating criteria
+                                  setDiscoverDimensions((prev) => {
+                                    const next = new Map(prev)
+                                    next.set(pairId, '')
+                                    return next
+                                  })
+                                }
+                              }}
+                              disabled={createCriteriaBoxMutation.isPending || !pairDimension.trim()}
+                              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-50"
+                            >
+                              {createCriteriaBoxMutation.isPending ? 'Adding...' : 'Add'}
+                            </button>
+                          </div>
+                        </div>
+                        {criteria && criteria.filter((c: Criteria) => c.topicIds.includes(topicId ?? '')).length > 0 && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              Criteria
+                            </p>
+                            <div className="space-y-2">
+                              {criteria
+                                .filter((c: Criteria) => c.topicIds.includes(topicId ?? ''))
+                                .map((c) => {
+                                  const evalKey = `${pairId}-${c.id}`
+                                  const currentEval = discoverEvaluations.get(evalKey)
+                                  return (
+                                    <div
+                                      key={c.id}
+                                      className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-2"
+                                    >
+                                      <span className="text-sm text-slate-800">{c.title}</span>
+                                      <div className="flex gap-1">
+                                        {(['meh', 'okay', 'good'] as EvaluationValue[]).map((value) => (
+                                          <button
+                                            key={value}
+                                            onClick={async () => {
+                                              if (!user) return
+                                              await saveEvaluation(topicId!, pairMessageId, c.id, value)
+                                              // Update local state
+                                              const newEvals = new Map(discoverEvaluations)
+                                              const existing = discoverEvaluations.get(evalKey)
+                                              if (existing) {
+                                                newEvals.set(evalKey, { ...existing, value })
+                                              } else {
+                                                newEvals.set(evalKey, {
+                                                  id: `${pairMessageId}-${c.id}`,
+                                                  messageId: pairMessageId,
+                                                  criteriaId: c.id,
+                                                  value,
+                                                })
+                                              }
+                                              setDiscoverEvaluations(newEvals)
+                                            }}
+                                            className={`rounded px-2 py-1 text-xs font-medium transition ${
+                                              currentEval?.value === value
+                                                ? value === 'good'
+                                                  ? 'bg-green-100 text-green-800'
+                                                  : value === 'okay'
+                                                    ? 'bg-yellow-100 text-yellow-800'
+                                                    : 'bg-red-100 text-red-800'
+                                                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                                            }`}
+                                          >
+                                            {value}
+                                          </button>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+                            </div>
+                          </div>
+                        )}
                         {isLoading ? (
                           <div className="flex items-center gap-2 text-sm text-slate-600">
                             <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
@@ -824,7 +1281,7 @@ export function TopicDetailPage() {
               key={message.id}
               className={`flex flex-col gap-1 rounded-xl border px-3 py-2 text-sm shadow-sm ${
                 message.role === 'assistant'
-                  ? 'border-brand/40 bg-brand-light text-brand-dark'
+                  ? 'border-brand/40 bg-brand-light text-slate-800'
                   : 'border-slate-200 bg-white text-slate-800'
               }`}
             >
@@ -915,12 +1372,51 @@ export function TopicDetailPage() {
                   onSuggestionClick={handleSuggestionClick}
                 />
               )}
+              {/* Deploy stage: Feedback after 2nd turn - only show if generated in Deploy stage */}
+              {message.role === 'assistant' &&
+                (message.generatedStage === 'Deploy' ||
+                  (!message.generatedStage &&
+                    !message.discoverPairId &&
+                    (topic?.stage === 'Deploy' || stage === 'Deploy'))) && (
+                <>
+                  {deployFeedbackGenerating.has(message.id) && (
+                    <div className="mt-4 flex items-center gap-2 text-sm text-slate-600">
+                      <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
+                      Generating feedback...
+                    </div>
+                  )}
+                  {deployFeedback.has(message.id) && (
+                    <div className="mt-4 rounded-lg border border-brand/40 bg-brand-light/50 px-4 py-3">
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-dark">
+                        Reflection Feedback
+                      </p>
+                      <div className="prose prose-sm max-w-none leading-relaxed text-slate-800">
+                        <ReactMarkdown
+                          components={{
+                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                            strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+                            em: ({ children }) => <em className="italic">{children}</em>,
+                          }}
+                        >
+                          {deployFeedback.get(message.id)?.content || ''}
+                        </ReactMarkdown>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
             )
           })}
         </div>
 
         <div className="border-t border-slate-100 px-6 py-4">
+          {sendMutation.isPending && (
+            <div className="mb-3 flex items-center gap-2 text-sm text-slate-600">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
+              Claude is replying…
+            </div>
+          )}
           <form className="space-y-3" onSubmit={handleSubmit}>
             <textarea
               value={input}

@@ -113,3 +113,17 @@ export async function generateDefineSuggestions(input: {
   return result.data as GenerateDefineSuggestionsResponse
 }
 
+type GenerateDeployFeedbackResponse = {
+  feedbackId: string
+  content: string
+}
+
+export async function generateDeployFeedback(input: {
+  topicId: string
+  messageId: string
+}) {
+  const callable = httpsCallable(functionsClient, 'generateDeployFeedback')
+  const result = await callable(input)
+  return result.data as GenerateDeployFeedbackResponse
+}
+
