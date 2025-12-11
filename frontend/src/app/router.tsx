@@ -3,6 +3,7 @@ import { ProtectedRoute } from '../features/auth/ProtectedRoute'
 import { LoginPage } from '../pages/Login'
 import { TopicDetailPage } from '../pages/TopicDetail'
 import { TopicsPage } from '../pages/Topics'
+import { CriteriaPage } from '../pages/Criteria'
 import { AppShell } from '../components/layout/AppShell'
 
 export const router = createBrowserRouter([
@@ -21,6 +22,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/topics" replace /> },
       { path: 'topics', element: <TopicsPage /> },
       { path: 'topics/:topicId', element: <TopicDetailPage /> },
+      { path: 'criteria', element: <CriteriaPage /> },
       { path: '*', element: <Navigate to="/topics" replace /> },
     ],
   },

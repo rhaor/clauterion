@@ -33,6 +33,18 @@ export function AppShell() {
               >
                 Topics
               </NavLink>
+              <NavLink
+                to="/criteria"
+                end
+                className={({ isActive }) =>
+                  [
+                    'rounded border border-slate-200 px-3 py-2 text-sm font-medium transition hover:text-slate-700 hover:bg-sand-50',
+                    isActive ? 'text-brand-dark' : 'text-slate-700',
+                  ].join(' ')
+                }
+              >
+                Criteria
+              </NavLink>
             </nav>
           </div>
           <div className="flex items-center gap-3 text-sm text-slate-600">

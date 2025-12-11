@@ -55,7 +55,7 @@ export function TopicsPage() {
             Your topics
           </h2>
           <p className="text-sm text-slate-600">
-            Track conversations and experiments with Claude.
+            Learn about a specific topic with Claude.
           </p>
         </div>
         <div className="space-y-4">
