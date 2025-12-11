@@ -1012,3 +1012,182 @@ Status: **completed**
 
 ---
 
+Added topic link editing for criteria.
+
+- `CriteriaPage` now lets you add/remove topics per criterion via checkboxes and save with `updateCriteria` (uses server timestamps). Shows linked topics, handles loading/empty/error states, and disables buttons while saving or deleting.
+- State syncs to current criteria so edits reflect existing links.
+
+File touched: `frontend/src/pages/Criteria.tsx`.
+
+---
+
+_**User**_
+
+Can the options for updating links only expand/show up when an "Update links" button is selected? 
+
+---
+
+_**Agent (model default, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+**Designing toggleable edit UI**
+
+Planning to add a toggle button per criteria to show/hide an edit panel for updating linked topics, tracked with a new open state record keyed by criteria ID. When opening, the selected topics state may initialize from current criteria, and the update links UI will be conditionally rendered, replacing the always-visible checkboxes with a cleaner toggle flow.</details></think>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="edit_file_v2">
+<details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+
+Parameters:
+
+```json
+{
+  "relativeWorkspacePath": "/Users/reb/clauterion/frontend/src/pages/Criteria.tsx"
+}
+```
+Additional data:
+
+```json
+{
+  "codeblockId": "4bd76926-b4e9-4471-920a-a20781cecd73"
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "/Users/reb/clauterion/frontend/src/pages/Criteria.tsx"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "/Users/reb/clauterion/frontend/src/pages/Criteria.tsx"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+Link editing is now collapsed behind a toggle.
+
+- Each criterion card now shows an “Update links” button; clicking reveals the link editor with topic checkboxes and a save action. Closing hides it.
+- Editors initialize with the existing topic links; saves still call `updateCriteria`.
+- Styles updated to keep the controls contained and unobtrusive.
+
+File updated: `frontend/src/pages/Criteria.tsx`.
+
+---
+
+_**User**_
+
+Remove the save button for updating the topics. Instead, save whenever a checkbox changes. 
+
+---
+
+_**Agent (model default, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+**Removing save button and adding instant update on checkbox toggle**
+
+I'm removing the save button and modifying the checkbox toggle handler to compute the next selection, update local state, and call the mutation immediately. Checkboxes will disable individually while their update is pending, determined by matching mutation variables with the criterion id. I'll retain inline error messages near the checkboxes without the save button.</details></think>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="edit_file_v2">
+<details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+
+Parameters:
+
+```json
+{
+  "relativeWorkspacePath": "/Users/reb/clauterion/frontend/src/pages/Criteria.tsx"
+}
+```
+Additional data:
+
+```json
+{
+  "codeblockId": "daff67f2-972f-4237-b72c-e202332e2dd0"
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "/Users/reb/clauterion/frontend/src/pages/Criteria.tsx"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "/Users/reb/clauterion/frontend/src/pages/Criteria.tsx"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+Updated criteria link editing to auto-save on checkbox change.
+
+- Removed the manual “Save links” button; checking/unchecking now immediately calls `updateCriteria`.
+- Checkboxes disable while the specific criterion is saving; errors still surface inline.
+- State stays in sync with the immediate selection and backend updates.
+
+File updated: `frontend/src/pages/Criteria.tsx`.
+
+---
+

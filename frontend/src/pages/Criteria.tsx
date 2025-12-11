@@ -22,6 +22,9 @@ export function CriteriaPage() {
   const [criteriaTopicSelections, setCriteriaTopicSelections] = useState<
     Record<string, string[]>
   >({})
+  const [criteriaEditOpen, setCriteriaEditOpen] = useState<
+    Record<string, boolean>
+  >({})
 
   const {
     data: topics,
@@ -103,6 +106,12 @@ export function CriteriaPage() {
       const next = current.includes(topicId)
         ? current.filter((id) => id !== topicId)
         : [...current, topicId]
+
+      updateCriteriaMutation.mutate({
+        criteriaId,
+        topicIds: next,
+      })
+
       return { ...prev, [criteriaId]: next }
     })
   }
@@ -110,16 +119,30 @@ export function CriteriaPage() {
   useEffect(() => {
     if (criteria) {
       const nextSelections: Record<string, string[]> = {}
+      const nextOpen: Record<string, boolean> = {}
       criteria.forEach((c) => {
         nextSelections[c.id] = c.topicIds ?? []
+        nextOpen[c.id] = false
       })
       setCriteriaTopicSelections(nextSelections)
+      setCriteriaEditOpen((prev) => ({ ...nextOpen, ...prev }))
     }
   }, [criteria])
 
   const topicTitleById = new Map<string, string>(
     (topics ?? []).map((topic) => [topic.id, topic.title]),
   )
+
+  const toggleEditLinks = (item: Criteria) => {
+    setCriteriaTopicSelections((prev) => ({
+      ...prev,
+      [item.id]: prev[item.id] ?? item.topicIds ?? [],
+    }))
+    setCriteriaEditOpen((prev) => ({
+      ...prev,
+      [item.id]: !prev[item.id],
+    }))
+  }
 
   return (
     <div className="grid gap-8 lg:grid-cols-2">
@@ -191,65 +214,64 @@ export function CriteriaPage() {
                   )}
                 </div>
 
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                    Update links
-                  </p>
-                  <div className="flex flex-col gap-2">
-                    {topics?.map((topic: Topic) => (
-                      <label
-                        key={topic.id}
-                        className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm"
-                      >
-                        <input
-                          type="checkbox"
-                          className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/40"
-                          checked={
-                            (criteriaTopicSelections[item.id] ?? []).includes(
-                              topic.id,
-                            )
-                          }
-                          onChange={() =>
-                            toggleCriteriaTopic(item.id, topic.id)
-                          }
-                        />
-                        <span>{topic.title}</span>
-                      </label>
-                    ))}
-                    {!topicsLoading && (topics?.length ?? 0) === 0 && (
-                      <p className="text-xs text-slate-600">
-                        No topics yet. Create a topic to link it.
-                      </p>
-                    )}
+                <button
+                  type="button"
+                  onClick={() => toggleEditLinks(item)}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-sand-50"
+                >
+                  {criteriaEditOpen[item.id] ? 'Close link editor' : 'Update links'}
+                </button>
+
+                {criteriaEditOpen[item.id] && (
+                  <div className="space-y-2 rounded-lg border border-slate-200 bg-sand-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      Update links
+                    </p>
+                    <div className="flex flex-col gap-2">
+                      {topics?.map((topic: Topic) => {
+                        const isUpdating =
+                          updateCriteriaMutation.isPending &&
+                          updateCriteriaMutation.variables?.criteriaId ===
+                            item.id
+
+                        return (
+                          <label
+                            key={topic.id}
+                            className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/40"
+                              checked={
+                                (criteriaTopicSelections[item.id] ?? []).includes(
+                                  topic.id,
+                                )
+                              }
+                              onChange={() =>
+                                toggleCriteriaTopic(item.id, topic.id)
+                              }
+                              disabled={isUpdating}
+                            />
+                            <span>{topic.title}</span>
+                          </label>
+                        )
+                      })}
+                      {!topicsLoading && (topics?.length ?? 0) === 0 && (
+                        <p className="text-xs text-slate-600">
+                          No topics yet. Create a topic to link it.
+                        </p>
+                      )}
+                    </div>
+                    {updateCriteriaMutation.error &&
+                      updateCriteriaMutation.variables?.criteriaId === item.id && (
+                        <p className="text-xs text-red-600">
+                          {updateCriteriaMutation.error instanceof Error
+                            ? updateCriteriaMutation.error.message
+                            : 'Unable to update criteria'}
+                        </p>
+                      )}
                   </div>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      updateCriteriaMutation.mutate({
-                        criteriaId: item.id,
-                        topicIds: criteriaTopicSelections[item.id] ?? [],
-                      })
-                    }
-                    disabled={
-                      updateCriteriaMutation.isPending &&
-                      updateCriteriaMutation.variables?.criteriaId === item.id
-                    }
-                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-sand-50 disabled:opacity-60"
-                  >
-                    {updateCriteriaMutation.isPending &&
-                    updateCriteriaMutation.variables?.criteriaId === item.id
-                      ? 'Saving…'
-                      : 'Save links'}
-                  </button>
-                  {updateCriteriaMutation.error &&
-                    updateCriteriaMutation.variables?.criteriaId === item.id && (
-                      <p className="text-xs text-red-600">
-                        {updateCriteriaMutation.error instanceof Error
-                          ? updateCriteriaMutation.error.message
-                          : 'Unable to update criteria'}
-                      </p>
-                    )}
-                </div>
+                )}
               </div>
             </div>
           ))}
