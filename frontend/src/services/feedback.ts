@@ -1,10 +1,8 @@
 import {
   collection,
-  doc,
-  getDoc,
+  getDocs,
   onSnapshot,
   query,
-  where,
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 
@@ -52,7 +50,7 @@ export function listenToFeedback(
 
 export async function getFeedback(topicId: string, messageId: string): Promise<Feedback | null> {
   const feedbackCollection = getFeedbackCollection(topicId, messageId)
-  const feedbackSnapshot = await feedbackCollection.get()
+  const feedbackSnapshot = await getDocs(feedbackCollection)
   
   if (feedbackSnapshot.docs.length === 0) {
     return null

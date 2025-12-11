@@ -101,8 +101,6 @@ export async function generateSuggestions(input: {
   return result.data as GenerateSuggestionsResponse
 }
 
-import type { DefineSuggestion } from './defineSuggestions'
-
 type GenerateDefineSuggestionsResponse = {
   suggestions: DefineSuggestion[]
 }
