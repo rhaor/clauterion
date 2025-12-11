@@ -48,9 +48,7 @@ export function LoginPage() {
         <div className="mb-6 text-center">
           <h1 className="text-xl font-semibold text-slate-900">Clauterion</h1>
           <p className="mt-1 text-sm text-slate-500">
-            {mode === 'signin'
-              ? 'Sign in to explore prototype on evaluating and iterating on Claude outputs.'
-              : 'Create account to explore prototype on evaluating and iterating on Claude outputs.'}
+            An experiment to support your AI evaluation and use journey.
           </p>
         </div>
         <form className="space-y-4" onSubmit={handleSubmit}>

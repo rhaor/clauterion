@@ -4821,3 +4821,96 @@ Centered the heading and description on the Login page. The header block is now 
 
 ---
 
+_**User (2025-12-11 07:16Z)**_
+
+Actually can we just add another heading for Sign in vs. Create account? And then have some description text that says "An experiment to support your AI evaluation and use journey."
+
+---
+
+_**Agent (model default, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+**Planning header update structure**
+
+I'm deciding to keep the main h1 title static, add a dynamic h2 reflecting "Sign in" vs. "Create account," and place a new static description below that for clarity and consistency. Next, I'll adjust classes accordingly and remove the old dynamic paragraph.</details></think>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="apply_patch">
+<details>
+<summary>Tool use: **apply_patch**</summary>
+
+
+Parameters:
+
+```json
+{
+  "relativeWorkspacePath": "/Users/reb/clauterion/frontend/src/pages/Login.tsx"
+}
+```
+Additional data:
+
+```json
+{
+  "codeblockId": "7b0661f5-3ed9-4ee1-9726-ac190c0d286c"
+}
+```
+Result:
+
+```json
+{
+  "diff": {
+    "chunks": [
+      {
+        "diffString": "          &lt;div className=\"mb-6 text-center\"&gt;\n            &lt;h1 className=\"text-xl font-semibold text-slate-900\"&gt;Clauterion&lt;/h1&gt;\n+           &lt;h2 className=\"mt-1 text-lg font-semibold text-slate-800\"&gt;\n+             {mode === 'signin' ? 'Sign in' : 'Create account'}\n+           &lt;/h2&gt;\n            &lt;p className=\"mt-1 text-sm text-slate-500\"&gt;\n-             {mode === 'signin'\n-               ? 'Sign in to explore prototype on evaluating and iterating on Claude outputs.'\n-               : 'Create account to explore prototype on evaluating and iterating on Claude outputs.'}\n+             An experiment to support your AI evaluation and use journey.\n            &lt;/p&gt;\n          &lt;/div&gt;",
+        "oldStart": 48,
+        "newStart": 48,
+        "oldLines": 8,
+        "newLines": 9,
+        "linesRemoved": 3,
+        "linesAdded": 4
+      }
+    ],
+    "editor": "EDITOR_AI"
+  },
+  "shouldAutoFixLints": true,
+  "resultForModel": "Success. Updated the following files:\nM /Users/reb/clauterion/frontend/src/pages/Login.tsx",
+  "contentsAfterEdit": "import { useEffect, useState } from 'react'\nimport type { FormEvent } from 'react'\nimport { Link, useNavigate } from 'react-router-dom'\nimport {\n  createUserWithEmailAndPassword,\n  signInWithEmailAndPassword,\n} from 'firebase/auth'\nimport { auth } from '../lib/firebase'\nimport { useAuth } from '../features/auth/AuthProvider'\n\nexport function LoginPage() {\n  const navigate = useNavigate()\n  const { user } = useAuth()\n  const [email, setEmail] = useState('')\n  const [password, setPassword] = useState('')\n  const [mode, setMode] = useState&lt;'signin' | 'signup'&gt;('signin')\n  const [error, setError] = useState&lt;string | null&gt;(null)\n  const [isSubmitting, setIsSubmitting] = useState(false)\n\n  useEffect(() =&gt; {\n    if (user) {\n      navigate('/topics')\n    }\n  }, [navigate, user])\n\n  const handleSubmit = async (event: FormEvent) =&gt; {\n    event.preventDefault()\n    setError(null)\n    setIsSubmitting(true)\n\n    try {\n      if (mode === 'signin') {\n        await signInWithEmailAndPassword(auth, email, password)\n      } else {\n        await createUserWithEmailAndPassword(auth, email, password)\n      }\n      navigate('/topics')\n    } catch (err) {\n      setError(err instanceof Error ? err.message : 'Something went wrong')\n    } finally {\n      setIsSubmitting(false)\n    }\n  }\n\n  return (\n    &lt;div className=\"flex min-h-screen items-center justify-center bg-sand-50 px-4\"&gt;\n      &lt;div className=\"w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm\"&gt;\n        &lt;div className=\"mb-6 text-center\"&gt;\n          &lt;h1 className=\"text-xl font-semibold text-slate-900\"&gt;Clauterion&lt;/h1&gt;\n          &lt;h2 className=\"mt-1 text-lg font-semibold text-slate-800\"&gt;\n            {mode === 'signin' ? 'Sign in' : 'Create account'}\n          &lt;/h2&gt;\n          &lt;p className=\"mt-1 text-sm text-slate-500\"&gt;\n            An experiment to support your AI evaluation and use journey.\n          &lt;/p&gt;\n        &lt;/div&gt;\n        &lt;form className=\"space-y-4\" onSubmit={handleSubmit}&gt;\n          &lt;div className=\"space-y-2\"&gt;\n            &lt;label className=\"text-sm font-medium text-slate-700\" htmlFor=\"email\"&gt;\n              Email\n            &lt;/label&gt;\n            &lt;input\n              id=\"email\"\n              type=\"email\"\n            className=\"w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30\"\n              value={email}\n              onChange={(e) =&gt; setEmail(e.target.value)}\n              required\n            /&gt;\n          &lt;/div&gt;\n          &lt;div className=\"space-y-2\"&gt;\n            &lt;label\n              className=\"text-sm font-medium text-slate-700\"\n              htmlFor=\"password\"\n            &gt;\n              Password\n            &lt;/label&gt;\n            &lt;input\n              id=\"password\"\n              type=\"password\"\n            className=\"w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30\"\n              value={password}\n              onChange={(e) =&gt; setPassword(e.target.value)}\n              required\n            /&gt;\n          &lt;/div&gt;\n          {error &amp;&amp; (\n            &lt;div className=\"rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700\"&gt;\n              {error}\n            &lt;/div&gt;\n          )}\n          &lt;button\n            type=\"submit\"\n            className=\"flex w-full items-center justify-center rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition hover:bg-brand-dark disabled:opacity-60\"\n            disabled={isSubmitting}\n          &gt;\n            {isSubmitting ? 'Working...' : mode === 'signin' ? 'Sign in' : 'Create account'}\n          &lt;/button&gt;\n        &lt;/form&gt;\n        &lt;div className=\"mt-4 text-center text-sm text-slate-600\"&gt;\n          {mode === 'signin' ? (\n            &lt;span&gt;\n              New here?{' '}\n              &lt;Link\n                className=\"font-semibold text-brand hover:text-brand-dark\"\n                to=\"#\"\n                onClick={() =&gt; setMode('signup')}\n              &gt;\n                Create an account\n              &lt;/Link&gt;\n            &lt;/span&gt;\n          ) : (\n            &lt;span&gt;\n              Already have an account?{' '}\n              &lt;Link\n                className=\"font-semibold text-brand hover:text-brand-dark\"\n                to=\"#\"\n                onClick={() =&gt; setMode('signin')}\n              &gt;\n                Sign in\n              &lt;/Link&gt;\n            &lt;/span&gt;\n          )}\n        &lt;/div&gt;\n      &lt;/div&gt;\n    &lt;/div&gt;\n  )\n}\n\n"
+}
+```
+User decision: **accepted**
+
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="generic" data-tool-name="read_lints">
+<details>
+          <summary>Tool use: **read_lints** • Read lints for 1 file</summary>
+      
+Lint paths:
+
+- `/Users/reb/clauterion/frontend/src/pages/Login.tsx`
+
+Lint results
+
+
+**No lint errors found**
+</details>
+</tool-use>
+
+---
+
+Added a mode-specific subheading and updated the description on the Login page:
+
+- Shows “Sign in” or “Create account” beneath “Clauterion” based on the current mode.
+- New description: “An experiment to support your AI evaluation and use journey.”
+
+No lint issues. Rebuild/redeploy to see it live.
+
+---
+

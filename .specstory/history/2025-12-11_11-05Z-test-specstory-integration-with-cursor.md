@@ -45,3 +45,20 @@ Practical guidance:
 
 ---
 
+_**User**_
+
+Do you need to hide firestore.rules and firestore.indexes.json from git? 
+
+---
+
+_**Agent (model default, mode Agent)**_
+
+Generally, keep both in git:
+
+- `firestore.rules`: should be versioned—critical auth/data logic; CI/CD deploys rely on it.
+- `firestore.indexes.json`: also versioned—captures required indexes; prevents missing-index errors in new envs.
+
+Only ignore them if you generate environment-specific variants you shouldn’t share (rare). In normal cases, track both.
+
+---
+

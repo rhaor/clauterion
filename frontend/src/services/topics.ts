@@ -41,11 +41,13 @@ export async function createTopic(userId: string, input: CreateTopicInput) {
     throw new Error('Topic title is required')
   }
 
-  await addDoc(topicsCollection, {
+  const docRef = await addDoc(topicsCollection, {
     title: input.title,
     description: input.description ?? '',
     ownerId: userId,
     createdAt: serverTimestamp(),
   })
+  
+  return docRef.id
 }
 

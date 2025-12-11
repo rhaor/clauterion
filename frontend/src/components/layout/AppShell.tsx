@@ -17,18 +17,17 @@ export function AppShell() {
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-3">
-            <span className="rounded bg-brand-light px-3 py-1 text-sm font-semibold text-brand-dark">
+            <span className="text-xl font-semibold text-brand-DEFAULT">
               Clauterion
             </span>
             <nav className="flex items-center gap-4 text-sm text-slate-600">
               <NavLink
                 to="/topics"
+                end
                 className={({ isActive }) =>
                   [
-                    'rounded px-2 py-1',
-                    isActive
-                      ? 'bg-brand-light text-brand-dark'
-                      : 'hover:text-brand-dark',
+                    'rounded border border-slate-200 px-3 py-2 text-sm font-medium transition hover:text-slate-700 hover:bg-sand-50',
+                    isActive ? 'text-brand-dark' : 'text-slate-700',
                   ].join(' ')
                 }
               >
