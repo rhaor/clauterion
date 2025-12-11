@@ -872,13 +872,14 @@ export function TopicDetailPage() {
         )}
       </div>
 
-      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-sand-50 p-4 shadow-sm md:flex-row md:items-center md:justify-between">
         <div className="text-sm text-slate-800">
-          <p>This is the <span className="font-semibold">Clauterion Challenge</span>! Here we're exploring how to hone our critical thinking 
-          about AI responses, and grow our skills in follow up with AI to better meet our needs.</p>
+          <p>Welcome to the <span className="font-semibold">Clauterion Challenge</span>! Here we're exploring how to hone our critical thinking 
+          about AI responses, and grow our skills in following up with AI to better meet our needs. This happens integrated in your conversations with Claude, so it's relevant and timely!</p>
+          <br></br>
           <p>You're currently trying the <span className="font-semibold">{stage}</span> stage. These
           stages contain different types and levels of support to achieve this. In a tool, you could imagine that the tool
-          tries to infer which stage you're currently at and show the corresponding experience.</p>
+          tries to figure out which stage you're currently at and show the more helpful experience.</p>
         </div>
         <select
           className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30 md:w-48"
