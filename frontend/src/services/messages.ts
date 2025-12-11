@@ -16,21 +16,30 @@ const getMessagesCollection = (topicId: string) =>
 export function listenToMessages(
   topicId: string,
   onUpdate: (messages: Message[]) => void,
+  onError?: (error: unknown) => void,
 ) {
   const q = query(getMessagesCollection(topicId), orderBy('createdAt', 'asc'))
-  return onSnapshot(q, (snapshot) => {
-    const messages: Message[] = snapshot.docs.map((doc) => {
-      const data = doc.data()
-      return {
-        id: doc.id,
-        content: data.content ?? '',
-        role: data.role ?? 'user',
-        authorId: data.authorId ?? '',
-        createdAt: data.createdAt?.toDate?.(),
-      }
-    })
-    onUpdate(messages)
-  })
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const messages: Message[] = snapshot.docs.map((doc) => {
+        const data = doc.data()
+        return {
+          id: doc.id,
+          content: data.content ?? '',
+          role: data.role ?? 'user',
+          authorId: data.authorId ?? '',
+          createdAt: data.createdAt?.toDate?.(),
+        }
+      })
+      onUpdate(messages)
+    },
+    (error) => {
+      if (onError) onError(error)
+      // Avoid rethrowing to prevent React error boundary; Firestore errors are surfaced here.
+      console.error('listenToMessages error', error)
+    },
+  )
 }
 
 export async function addUserMessage(topicId: string, params: { content: string; authorId: string }) {
