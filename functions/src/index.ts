@@ -588,10 +588,9 @@ The user received this response from Claude:
 They evaluated this response against their criteria:
 ${evaluationSummary}
 
-Based on these evaluations and the user's learning goals, generate exactly 3 specific, actionable follow-up questions or prompts that would help them:
+Based on these evaluations and the user's learning goals, generate exactly 2 specific, actionable follow-up questions or prompts that would help them:
 1. Address areas where the response was rated "meh" or "okay"
-2. Build on areas that were rated "good"
-3. Deepen their understanding in ways that align with their goals
+2. Build on areas that were rated "good" OR deepen their understanding in ways that align with their goals
 
 Each suggestion should be:
 - Specific and actionable
@@ -599,7 +598,9 @@ Each suggestion should be:
 - Tailored to help them achieve their learning goals
 - Written as a complete question or prompt they can use directly
 
-Return ONLY a JSON array of exactly 3 strings, no other text. Format: ["suggestion 1", "suggestion 2", "suggestion 3"]`
+For each suggestion, also provide a very short rationale (1-2 sentences) explaining why this suggestion is useful for their learning.
+
+Return ONLY a JSON array of exactly 2 objects, no other text. Format: [{"suggestion": "question or prompt here", "rationale": "brief explanation"}, {"suggestion": "question or prompt here", "rationale": "brief explanation"}]`
 
       const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -644,26 +645,53 @@ Return ONLY a JSON array of exactly 3 strings, no other text. Format: ["suggesti
         textPart && 'text' in textPart && textPart.text ? textPart.text.trim() : '[]'
 
       // Parse JSON from response
-      let suggestions: string[] = []
+      type SuggestionWithRationale = { suggestion: string; rationale: string }
+      let suggestions: SuggestionWithRationale[] = []
       try {
         const jsonMatch = suggestionsText.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/) || suggestionsText.match(/(\[[\s\S]*?\])/)
         const jsonString = jsonMatch ? jsonMatch[1] : suggestionsText
-        suggestions = JSON.parse(jsonString)
-        if (!Array.isArray(suggestions) || suggestions.length !== 3) {
-          throw new Error('Invalid suggestions format')
+        const parsed = JSON.parse(jsonString)
+        
+        if (!Array.isArray(parsed) || parsed.length !== 2) {
+          throw new Error('Invalid suggestions format: expected array of 2 items')
+        }
+        
+        // Validate and normalize the format
+        suggestions = parsed.map((item: any, index: number) => {
+          if (typeof item === 'string') {
+            // Handle old format (just strings) - shouldn't happen but be safe
+            return { suggestion: item, rationale: '' }
+          }
+          if (typeof item === 'object' && item !== null) {
+            return {
+              suggestion: item.suggestion || item.text || item.question || '',
+              rationale: item.rationale || item.reason || item.explanation || '',
+            }
+          }
+          throw new Error(`Invalid suggestion format at index ${index}`)
+        })
+        
+        // Validate all suggestions have content
+        if (suggestions.some(s => !s.suggestion.trim())) {
+          throw new Error('Some suggestions are missing content')
         }
       } catch (parseError) {
         logger.error('Failed to parse Define suggestions JSON', { suggestionsText, parseError })
         // Fallback: return generic suggestions
         suggestions = [
-          'How can you improve the areas you rated lower?',
-          'What would make this response more helpful for your goals?',
-          'What specific aspects would you like to explore further?',
+          {
+            suggestion: 'How can you improve the areas you rated lower?',
+            rationale: 'This helps you identify specific gaps and focus your learning efforts.',
+          },
+          {
+            suggestion: 'What would make this response more helpful for your goals?',
+            rationale: 'This helps you clarify what you need to achieve your learning objectives.',
+          },
         ]
       }
 
       return {
-        suggestions: suggestions.slice(0, 3), // Ensure exactly 3
+        suggestions: suggestions.slice(0, 2), // Ensure exactly 2
       }
     } catch (error) {
       logger.error('generateDefineSuggestions failed', error)

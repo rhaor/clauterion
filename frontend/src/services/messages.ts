@@ -9,6 +9,7 @@ import {
 import { httpsCallable } from 'firebase/functions'
 import { db, functionsClient } from '../lib/firebase'
 import type { Message } from '../types/message'
+import type { DefineSuggestion } from './defineSuggestions'
 
 const getMessagesCollection = (topicId: string) =>
   collection(db, 'topics', topicId, 'messages')
@@ -95,8 +96,10 @@ export async function generateSuggestions(input: {
   return result.data as GenerateSuggestionsResponse
 }
 
+import type { DefineSuggestion } from './defineSuggestions'
+
 type GenerateDefineSuggestionsResponse = {
-  suggestions: string[]
+  suggestions: DefineSuggestion[]
 }
 
 export async function generateDefineSuggestions(input: {

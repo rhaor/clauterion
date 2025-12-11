@@ -17,7 +17,7 @@ import { fetchCriteria, createCriteria } from '../services/criteria'
 import { fetchTopicById, updateTopicStage } from '../services/topics'
 import { listenToFeedback } from '../services/feedback'
 import { listenToDiscoverData, saveDiscoverData } from '../services/discoverData'
-import { listenToDefineSuggestions, saveDefineSuggestions } from '../services/defineSuggestions'
+import { listenToDefineSuggestions, saveDefineSuggestions, type DefineSuggestion } from '../services/defineSuggestions'
 import type { Message } from '../types/message'
 import type { Stage } from '../types/topic'
 import type { Criteria } from '../types/criteria'
@@ -30,9 +30,9 @@ type DefineStageUIProps = {
   criteria: Criteria[]
   evaluations: Map<string, Evaluation>
   setEvaluations: React.Dispatch<React.SetStateAction<Map<string, Evaluation>>>
-  defineSuggestions: Map<string, string[]>
+  defineSuggestions: Map<string, DefineSuggestion[]>
   defineSuggestionsLoading: Map<string, boolean>
-  setDefineSuggestions: React.Dispatch<React.SetStateAction<Map<string, string[]>>>
+  setDefineSuggestions: React.Dispatch<React.SetStateAction<Map<string, DefineSuggestion[]>>>
   setDefineSuggestionsLoading: React.Dispatch<React.SetStateAction<Map<string, boolean>>>
   newCriteriaTitle: Map<string, string>
   setNewCriteriaTitle: React.Dispatch<React.SetStateAction<Map<string, string>>>
@@ -219,7 +219,7 @@ function DefineStageUI({
       {/* Reflection Prompt 1: What else are you looking for? */}
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
         <p className="mb-3 text-sm text-slate-800">
-          What else are you looking for in a response? What do you think you should look for in a response?
+          What else are you looking for in a response?
         </p>
         {!messageShowNewCriteriaInput ? (
           <button
@@ -292,7 +292,7 @@ function DefineStageUI({
       {allCriteriaEvaluated && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
           <p className="mb-3 text-sm text-slate-800">
-            How can you ask Claude to improve on these areas? What do you want to ask to address your goals and needs?
+            How can you ask Claude to improve on these areas? What do you want to ask to address your goals and needs? Try it out by writing a message to Claude, or generate suggestions below.
           </p>
           {messageDefineSuggestionsLoading ? (
             <div className="flex items-center gap-2 text-sm text-slate-600">
@@ -315,14 +315,21 @@ function DefineStageUI({
               </button>
             </div>
           ) : messageDefineSuggestions.length > 0 ? (
-            <div className="grid gap-2 md:grid-cols-3">
-              {messageDefineSuggestions.map((suggestion, idx) => (
+            <div className="grid gap-3 md:grid-cols-2">
+              {messageDefineSuggestions.map((item, idx) => (
                 <button
                   key={idx}
-                  onClick={() => onSuggestionClick(suggestion)}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-800 shadow-sm transition hover:border-brand hover:bg-brand-light"
+                  onClick={() => onSuggestionClick(item.suggestion)}
+                  className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-left shadow-sm transition hover:border-brand hover:bg-brand-light"
                 >
-                  {suggestion}
+                  <div className="text-sm font-medium text-slate-900 mb-1">
+                    {item.suggestion}
+                  </div>
+                  {item.rationale && (
+                    <div className="text-xs text-slate-600 mt-2">
+                      {item.rationale}
+                    </div>
+                  )}
                 </button>
               ))}
             </div>
@@ -358,7 +365,7 @@ export function TopicDetailPage() {
   // Define stage state
   const [evaluations, setEvaluations] = useState<Map<string, Evaluation>>(new Map())
   // Define suggestions keyed by messageId to persist per message
-  const [defineSuggestions, setDefineSuggestions] = useState<Map<string, string[]>>(new Map())
+  const [defineSuggestions, setDefineSuggestions] = useState<Map<string, DefineSuggestion[]>>(new Map())
   const [defineSuggestionsLoading, setDefineSuggestionsLoading] = useState<Map<string, boolean>>(new Map())
   // New criteria input state keyed by messageId
   const [newCriteriaTitle, setNewCriteriaTitle] = useState<Map<string, string>>(new Map())
@@ -867,9 +874,11 @@ export function TopicDetailPage() {
 
       <div className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between">
         <div className="text-sm text-slate-800">
-          You're currently testing the <span className="font-semibold">{stage}</span> stage. These
-          stages contain different levels of scaffolding. In a tool, you could imagine that the tool
-          tries to infer which stage you're currently at and show the respective experience.
+          <p>This is the <span className="font-semibold">Clauterion Challenge</span>! Here we're exploring how to hone our critical thinking 
+          about AI responses, and grow our skills in follow up with AI to better meet our needs.</p>
+          <p>You're currently trying the <span className="font-semibold">{stage}</span> stage. These
+          stages contain different types and levels of support to achieve this. In a tool, you could imagine that the tool
+          tries to infer which stage you're currently at and show the corresponding experience.</p>
         </div>
         <select
           className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900 shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30 md:w-48"
@@ -1108,17 +1117,16 @@ export function TopicDetailPage() {
 
               return (
                 <div key={`pair-${pairId}`} className="space-y-3">
+                  <p>Take a look at the two responses. Where are they different? Which one is more helpful for you right now?</p>
                   <div className="grid gap-3 md:grid-cols-2">
                     {renderMessageCard(pair.a, 'a', pairId, pairMessageId)}
                     {renderMessageCard(pair.b, 'b', pairId, pairMessageId)}
                   </div>
                   {selectedMessageId && (pair.a?.id === selectedMessageId || pair.b?.id === selectedMessageId) && (
                     <>
+                      <p>Thanks! One way these vary is {pairDimension}. Let's add this to the criteria we're thinking about when looking at the AI responses for this topic.</p>
                       <div className="space-y-2">
                         <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-2">
-                            Variation Dimension (Add Criteria)
-                          </p>
                           <div className="flex gap-2">
                             <input
                               type="text"
@@ -1182,11 +1190,9 @@ export function TopicDetailPage() {
                             </button>
                           </div>
                         </div>
+                        <p>How well does this response meet your current criteria?</p>
                         {criteria && criteria.filter((c: Criteria) => c.topicIds.includes(topicId ?? '')).length > 0 && (
                           <div className="space-y-2">
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                              Criteria
-                            </p>
                             <div className="space-y-2">
                               {criteria
                                 .filter((c: Criteria) => c.topicIds.includes(topicId ?? ''))
@@ -1248,9 +1254,7 @@ export function TopicDetailPage() {
                           </div>
                         ) : pairSuggestions.length > 0 ? (
                           <>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                              Continue Exploring
-                            </p>
+                            <p>Here are some suggestions on how to continue the conversation, working with the model to better meet your criteria and needs.</p>
                             <div className="grid gap-2 md:grid-cols-3">
                               {pairSuggestions.map((suggestion, idx) => (
                                 <button
