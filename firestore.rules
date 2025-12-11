@@ -34,6 +34,10 @@ service cloud.firestore {
 
       match /messages/{messageId} {
         allow read, create, update, delete: if topicOwner(topicId);
+
+        match /evaluations/{evaluationId} {
+          allow read, create, update, delete: if topicOwner(topicId);
+        }
       }
     }
 

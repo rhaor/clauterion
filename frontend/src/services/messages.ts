@@ -30,6 +30,7 @@ export function listenToMessages(
           role: data.role ?? 'user',
           authorId: data.authorId ?? '',
           createdAt: data.createdAt?.toDate?.(),
+          generatedStage: data.generatedStage,
           discoverVariant: data.discoverVariant,
           discoverQueryNumber: data.discoverQueryNumber,
           discoverDimension: data.discoverDimension,
@@ -92,5 +93,23 @@ export async function generateSuggestions(input: {
   const callable = httpsCallable(functionsClient, 'generateSuggestions')
   const result = await callable(input)
   return result.data as GenerateSuggestionsResponse
+}
+
+type GenerateDefineSuggestionsResponse = {
+  suggestions: string[]
+}
+
+export async function generateDefineSuggestions(input: {
+  topicId: string
+  messageId: string
+  evaluations: Array<{
+    criteriaId: string
+    criteriaTitle: string
+    value: 'meh' | 'okay' | 'good'
+  }>
+}) {
+  const callable = httpsCallable(functionsClient, 'generateDefineSuggestions')
+  const result = await callable(input)
+  return result.data as GenerateDefineSuggestionsResponse
 }
 

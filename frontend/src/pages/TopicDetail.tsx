@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
 import { useAuth } from '../features/auth/AuthProvider'
@@ -9,12 +9,330 @@ import {
   listenToMessages,
   requestClaudeReply,
   generateSuggestions,
+  generateDefineSuggestions,
 } from '../services/messages'
+import { saveEvaluation, listenToEvaluations } from '../services/evaluations'
+import { fetchCriteria, createCriteria } from '../services/criteria'
 import { fetchTopicById, updateTopicStage } from '../services/topics'
 import type { Message } from '../types/message'
 import type { Stage } from '../types/topic'
-import { fetchCriteria } from '../services/criteria'
 import type { Criteria } from '../types/criteria'
+import type { Evaluation, EvaluationValue } from '../types/evaluation'
+
+type DefineStageUIProps = {
+  messageId: string
+  topicId: string
+  criteria: Criteria[]
+  evaluations: Map<string, Evaluation>
+  setEvaluations: React.Dispatch<React.SetStateAction<Map<string, Evaluation>>>
+  defineSuggestions: Map<string, string[]>
+  defineSuggestionsLoading: Map<string, boolean>
+  setDefineSuggestions: React.Dispatch<React.SetStateAction<Map<string, string[]>>>
+  setDefineSuggestionsLoading: React.Dispatch<React.SetStateAction<Map<string, boolean>>>
+  newCriteriaTitle: Map<string, string>
+  setNewCriteriaTitle: React.Dispatch<React.SetStateAction<Map<string, string>>>
+  showNewCriteriaInput: Map<string, boolean>
+  setShowNewCriteriaInput: React.Dispatch<React.SetStateAction<Map<string, boolean>>>
+  onSuggestionClick: (suggestion: string) => void
+}
+
+function DefineStageUI({
+  messageId,
+  topicId,
+  criteria,
+  evaluations,
+  setEvaluations,
+  defineSuggestions,
+  defineSuggestionsLoading,
+  setDefineSuggestions,
+  setDefineSuggestionsLoading,
+  newCriteriaTitle,
+  setNewCriteriaTitle,
+  showNewCriteriaInput,
+  setShowNewCriteriaInput,
+  onSuggestionClick,
+}: DefineStageUIProps) {
+  const { user } = useAuth()
+  const topicCriteria = criteria.filter((c) => c.topicIds.includes(topicId))
+
+  const handleEvaluation = async (criteriaId: string, value: EvaluationValue) => {
+    if (!user) return
+    await saveEvaluation(topicId, messageId, criteriaId, value)
+    // Update local state
+    const newEvals = new Map(evaluations)
+    const existing = Array.from(evaluations.values()).find(
+      (e) => e.criteriaId === criteriaId && e.messageId === messageId,
+    )
+    if (existing) {
+      newEvals.set(existing.id, { ...existing, value })
+    } else {
+      newEvals.set(`${messageId}-${criteriaId}`, {
+        id: `${messageId}-${criteriaId}`,
+        messageId,
+        criteriaId,
+        value,
+      })
+    }
+    setEvaluations(newEvals)
+  }
+
+  const getEvaluationForCriteria = (criteriaId: string): EvaluationValue | null => {
+    const evaluation = Array.from(evaluations.values()).find(
+      (e) => e.criteriaId === criteriaId && e.messageId === messageId,
+    )
+    return evaluation?.value || null
+  }
+
+  const queryClient = useQueryClient()
+  const createCriteriaMutation = useMutation({
+    mutationFn: async (title: string) => {
+      if (!user) throw new Error('Not authenticated')
+      const criteriaId = await createCriteria(user.uid, {
+        title,
+        topicIds: [topicId],
+      })
+      // Refresh criteria list
+      queryClient.invalidateQueries({ queryKey: ['criteria', user.uid] })
+      return criteriaId
+    },
+    onSuccess: () => {
+      setNewCriteriaTitle((prev) => {
+        const next = new Map(prev)
+        next.set(messageId, '')
+        return next
+      })
+      setShowNewCriteriaInput((prev) => {
+        const next = new Map(prev)
+        next.set(messageId, false)
+        return next
+      })
+    },
+  })
+
+  const generateSuggestionsMutation = useMutation({
+    mutationFn: async () => {
+      setDefineSuggestionsLoading((prev) => {
+        const next = new Map(prev)
+        next.set(messageId, true)
+        return next
+      })
+      try {
+        const evaluationData = topicCriteria
+          .map((c) => {
+            const evalValue = getEvaluationForCriteria(c.id)
+            return evalValue
+              ? {
+                  criteriaId: c.id,
+                  criteriaTitle: c.title,
+                  value: evalValue,
+                }
+              : null
+          })
+          .filter((ev): ev is NonNullable<typeof ev> => ev !== null)
+
+        if (evaluationData.length === 0) {
+          throw new Error('Please evaluate at least one criteria first')
+        }
+
+        const result = await generateDefineSuggestions({
+          topicId,
+          messageId,
+          evaluations: evaluationData,
+        })
+        console.log('Define suggestions result:', result)
+        if (!result?.suggestions || !Array.isArray(result.suggestions)) {
+          throw new Error('Invalid response format from server')
+        }
+        setDefineSuggestions((prev) => {
+          const next = new Map(prev)
+          next.set(messageId, result.suggestions)
+          return next
+        })
+      } catch (error) {
+        console.error('Failed to generate Define suggestions:', error)
+        throw error // Re-throw so React Query can handle it
+      } finally {
+        setDefineSuggestionsLoading((prev) => {
+          const next = new Map(prev)
+          next.set(messageId, false)
+          return next
+        })
+      }
+    },
+  })
+
+  const allCriteriaEvaluated = topicCriteria.length > 0 && topicCriteria.every((c) => getEvaluationForCriteria(c.id) !== null)
+  
+  // Get per-message state values
+  const messageNewCriteriaTitle = newCriteriaTitle.get(messageId) || ''
+  const messageShowNewCriteriaInput = showNewCriteriaInput.get(messageId) || false
+  const messageDefineSuggestions = defineSuggestions.get(messageId) || []
+  const messageDefineSuggestionsLoading = defineSuggestionsLoading.get(messageId) || false
+
+  return (
+    <div className="mt-4 space-y-4 border-t border-slate-200 pt-4">
+      {/* Criteria Evaluation Section */}
+      {topicCriteria.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Evaluate this response
+          </p>
+          <div className="space-y-2">
+            {topicCriteria.map((c) => {
+              const currentEval = getEvaluationForCriteria(c.id)
+              return (
+                <div key={c.id} className="flex items-center justify-between rounded-lg border border-slate-200 bg-white p-2">
+                  <span className="text-sm text-slate-800">{c.title}</span>
+                  <div className="flex gap-1">
+                    {(['meh', 'okay', 'good'] as EvaluationValue[]).map((value) => (
+                      <button
+                        key={value}
+                        onClick={() => handleEvaluation(c.id, value)}
+                        className={`rounded px-2 py-1 text-xs font-medium transition ${
+                          currentEval === value
+                            ? value === 'good'
+                              ? 'bg-green-100 text-green-800'
+                              : value === 'okay'
+                                ? 'bg-yellow-100 text-yellow-800'
+                                : 'bg-red-100 text-red-800'
+                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                        }`}
+                      >
+                        {value}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Reflection Prompt 1: What else are you looking for? */}
+      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <p className="mb-3 text-sm text-slate-800">
+          What else are you looking for in a response? What do you think you should look for in a response?
+        </p>
+        {!messageShowNewCriteriaInput ? (
+          <button
+            onClick={() => {
+              setShowNewCriteriaInput((prev) => {
+                const next = new Map(prev)
+                next.set(messageId, true)
+                return next
+              })
+            }}
+            className="rounded-lg border border-brand bg-white px-3 py-2 text-sm font-medium text-brand transition hover:bg-brand-light"
+          >
+            Create a criteria
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <input
+              type="text"
+              value={messageNewCriteriaTitle}
+              onChange={(e) => {
+                setNewCriteriaTitle((prev) => {
+                  const next = new Map(prev)
+                  next.set(messageId, e.target.value)
+                  return next
+                })
+              }}
+              placeholder="Enter criteria title..."
+              className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && messageNewCriteriaTitle.trim()) {
+                  createCriteriaMutation.mutate(messageNewCriteriaTitle.trim())
+                }
+              }}
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  if (messageNewCriteriaTitle.trim()) {
+                    createCriteriaMutation.mutate(messageNewCriteriaTitle.trim())
+                  }
+                }}
+                disabled={createCriteriaMutation.isPending || !messageNewCriteriaTitle.trim()}
+                className="rounded-lg bg-brand px-3 py-1 text-sm font-medium text-white transition hover:bg-brand-dark disabled:opacity-50"
+              >
+                {createCriteriaMutation.isPending ? 'Creating...' : 'Create'}
+              </button>
+              <button
+                onClick={() => {
+                  setShowNewCriteriaInput((prev) => {
+                    const next = new Map(prev)
+                    next.set(messageId, false)
+                    return next
+                  })
+                  setNewCriteriaTitle((prev) => {
+                    const next = new Map(prev)
+                    next.set(messageId, '')
+                    return next
+                  })
+                }}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-1 text-sm text-slate-600 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Reflection Prompt 2: How can you ask Claude to improve? */}
+      {allCriteriaEvaluated && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+          <p className="mb-3 text-sm text-slate-800">
+            How can you ask Claude to improve on these areas? What do you want to ask to address your goals and needs?
+          </p>
+          {messageDefineSuggestionsLoading ? (
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
+              Generating suggestions…
+            </div>
+          ) : generateSuggestionsMutation.error ? (
+            <div className="space-y-2">
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                {generateSuggestionsMutation.error instanceof Error
+                  ? generateSuggestionsMutation.error.message
+                  : 'Failed to generate suggestions. Please try again.'}
+              </div>
+              <button
+                onClick={() => generateSuggestionsMutation.mutate()}
+                disabled={generateSuggestionsMutation.isPending}
+                className="rounded-lg border border-brand bg-white px-3 py-2 text-sm font-medium text-brand transition hover:bg-brand-light disabled:opacity-50"
+              >
+                Try again
+              </button>
+            </div>
+          ) : messageDefineSuggestions.length > 0 ? (
+            <div className="grid gap-2 md:grid-cols-3">
+              {messageDefineSuggestions.map((suggestion, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => onSuggestionClick(suggestion)}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-800 shadow-sm transition hover:border-brand hover:bg-brand-light"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <button
+              onClick={() => generateSuggestionsMutation.mutate()}
+              disabled={generateSuggestionsMutation.isPending}
+              className="rounded-lg border border-brand bg-white px-3 py-2 text-sm font-medium text-brand transition hover:bg-brand-light disabled:opacity-50"
+            >
+              {generateSuggestionsMutation.isPending ? 'Generating...' : 'Generate suggestions'}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function TopicDetailPage() {
   const { topicId } = useParams<{ topicId: string }>()
@@ -23,9 +341,18 @@ export function TopicDetailPage() {
   const [input, setInput] = useState('')
   const [stage, setStage] = useState<Stage | undefined>(undefined)
   const [messagesError, setMessagesError] = useState<string | null>(null)
-  const [selectedDiscoverMessage, setSelectedDiscoverMessage] = useState<string | null>(null)
-  const [suggestions, setSuggestions] = useState<string[]>([])
-  const [suggestionsLoading, setSuggestionsLoading] = useState(false)
+  // Discover stage state - keyed by pairId to persist per pair
+  const [selectedDiscoverMessages, setSelectedDiscoverMessages] = useState<Map<string, string>>(new Map())
+  const [discoverSuggestions, setDiscoverSuggestions] = useState<Map<string, string[]>>(new Map())
+  const [discoverSuggestionsLoading, setDiscoverSuggestionsLoading] = useState<Map<string, boolean>>(new Map())
+  // Define stage state
+  const [evaluations, setEvaluations] = useState<Map<string, Evaluation>>(new Map())
+  // Define suggestions keyed by messageId to persist per message
+  const [defineSuggestions, setDefineSuggestions] = useState<Map<string, string[]>>(new Map())
+  const [defineSuggestionsLoading, setDefineSuggestionsLoading] = useState<Map<string, boolean>>(new Map())
+  // New criteria input state keyed by messageId
+  const [newCriteriaTitle, setNewCriteriaTitle] = useState<Map<string, string>>(new Map())
+  const [showNewCriteriaInput, setShowNewCriteriaInput] = useState<Map<string, boolean>>(new Map())
 
   useEffect(() => {
     if (!topicId?.trim() || !user?.uid) return
@@ -76,16 +403,18 @@ export function TopicDetailPage() {
     | { type: 'pair'; pair: { a?: Message; b?: Message; dimension?: string; timestamp?: number } }
 
   const messageTimeline = useMemo<TimelineItem[]>(() => {
-    if (stage !== 'Discover') {
-      return sortedMessages.map((msg) => ({ type: 'message' as const, message: msg }))
-    }
-
-    // Group Discover pairs
+    // Group Discover pairs (based on generatedStage, not current stage)
     const pairsMap = new Map<string, { a?: Message; b?: Message; dimension?: string; timestamp?: number }>()
     const pairIds = new Set<string>()
 
     sortedMessages.forEach((msg) => {
-      if (msg.role === 'assistant' && msg.discoverPairId && msg.discoverVariant) {
+      // Group pairs that have discover metadata (discoverPairId + discoverVariant indicates Discover stage)
+      // generatedStage is stored for future reference, but discover metadata is the source of truth
+      if (
+        msg.role === 'assistant' &&
+        msg.discoverPairId &&
+        msg.discoverVariant
+      ) {
         pairIds.add(msg.id)
         const pair = pairsMap.get(msg.discoverPairId) || {}
         if (msg.discoverVariant === 'a') {
@@ -138,29 +467,46 @@ export function TopicDetailPage() {
       await addUserMessage(topicId, { content, authorId: user.uid })
       setInput('')
       const response = await requestClaudeReply({ topicId, content })
-      // Reset selection and suggestions when new message is sent
-      setSelectedDiscoverMessage(null)
-      setSuggestions([])
+      // Don't reset existing pairs' selections/suggestions - they should persist
       return response
     },
   })
 
   const suggestionsMutation = useMutation({
-    mutationFn: async (selectedMessageId: string) => {
+    mutationFn: async ({ selectedMessageId, pairId }: { selectedMessageId: string; pairId: string }) => {
       if (!topicId) throw new Error('Missing topic')
-      setSuggestionsLoading(true)
+      setDiscoverSuggestionsLoading((prev) => {
+        const next = new Map(prev)
+        next.set(pairId, true)
+        return next
+      })
       try {
         const result = await generateSuggestions({ topicId, selectedMessageId })
-        setSuggestions(result.suggestions)
+        setDiscoverSuggestions((prev) => {
+          const next = new Map(prev)
+          next.set(pairId, result.suggestions)
+          return next
+        })
       } finally {
-        setSuggestionsLoading(false)
+        setDiscoverSuggestionsLoading((prev) => {
+          const next = new Map(prev)
+          next.set(pairId, false)
+          return next
+        })
       }
     },
   })
 
-  const handleSelectDiscoverMessage = (messageId: string) => {
-    setSelectedDiscoverMessage(messageId)
-    suggestionsMutation.mutate(messageId)
+  const handleSelectDiscoverMessage = (messageId: string, pairId: string) => {
+    setSelectedDiscoverMessages((prev) => {
+      const next = new Map(prev)
+      next.set(pairId, messageId)
+      return next
+    })
+    // Only generate suggestions if we don't already have them for this pair
+    if (!discoverSuggestions.has(pairId)) {
+      suggestionsMutation.mutate({ selectedMessageId: messageId, pairId })
+    }
   }
 
   const handleSuggestionClick = (suggestion: string) => {
@@ -186,6 +532,39 @@ export function TopicDetailPage() {
       setStage(topic.stage ?? 'Discover')
     }
   }, [topic])
+
+  // Listen to evaluations for assistant messages generated in Define stage
+  useEffect(() => {
+    if (!topicId) return
+
+    const unsubscribes: Array<() => void> = []
+    sortedMessages.forEach((msg) => {
+      // Listen to evaluations for messages generated in Define stage (regardless of current stage)
+      if (msg.role === 'assistant' && msg.generatedStage === 'Define') {
+        const unsubscribe = listenToEvaluations(
+          topicId,
+          msg.id,
+          (evals) => {
+            setEvaluations((prev) => {
+              const newMap = new Map(prev)
+              evals.forEach((evaluation) => {
+                newMap.set(evaluation.id, evaluation)
+              })
+              return newMap
+            })
+          },
+          (error) => {
+            console.error('Error listening to evaluations', error)
+          },
+        )
+        unsubscribes.push(unsubscribe)
+      }
+    })
+
+    return () => {
+      unsubscribes.forEach((unsub) => unsub())
+    }
+  }, [topicId, sortedMessages])
 
   return (
     <div className="flex flex-col gap-6">
@@ -307,11 +686,17 @@ export function TopicDetailPage() {
           {/* Render message timeline */}
           {messageTimeline.map((item, index) => {
             if (item.type === 'pair') {
-              if (stage !== 'Discover') return null
               const pair = item.pair
-              const renderMessageCard = (msg: Message | undefined, variant: 'a' | 'b') => {
+              // Pairs are already filtered in useMemo to only include messages with discover metadata
+              // Just verify we have at least one message in the pair
+              if (!pair.a && !pair.b) return null
+              // Get pairId for this pair (needed for state management)
+              const pairId = pair.a?.discoverPairId || pair.b?.discoverPairId || `pair-${index}`
+              
+              const renderMessageCard = (msg: Message | undefined, variant: 'a' | 'b', currentPairId: string) => {
                 if (!msg) return null
-                const isSelected = selectedDiscoverMessage === msg.id
+                const selectedMessageId = selectedDiscoverMessages.get(currentPairId)
+                const isSelected = selectedMessageId === msg.id
                 return (
                   <div
                     key={msg.id}
@@ -320,7 +705,7 @@ export function TopicDetailPage() {
                         ? 'border-brand bg-brand-light ring-2 ring-brand'
                         : 'border-brand/40 bg-brand-light text-brand-dark hover:border-brand/60'
                     }`}
-                    onClick={() => handleSelectDiscoverMessage(msg.id)}
+                    onClick={() => handleSelectDiscoverMessage(msg.id, currentPairId)}
                   >
                     <div className="flex items-center justify-between text-xs text-slate-500">
                       <span className="font-semibold uppercase tracking-wide">
@@ -379,46 +764,51 @@ export function TopicDetailPage() {
                 )
               }
 
+              // Use the pairId already declared above
+              const selectedMessageId = selectedDiscoverMessages.get(pairId)
+              const pairSuggestions = discoverSuggestions.get(pairId) || []
+              const isLoading = discoverSuggestionsLoading.get(pairId) || false
+
               return (
-                <div key={`pair-${index}`} className="space-y-3">
+                <div key={`pair-${pairId}`} className="space-y-3">
                   <div className="grid gap-3 md:grid-cols-2">
-                    {renderMessageCard(pair.a, 'a')}
-                    {renderMessageCard(pair.b, 'b')}
+                    {renderMessageCard(pair.a, 'a', pairId)}
+                    {renderMessageCard(pair.b, 'b', pairId)}
                   </div>
-                  {selectedDiscoverMessage && (pair.a?.id === selectedDiscoverMessage || pair.b?.id === selectedDiscoverMessage) && (
-                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">
-                      <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">
-                        Variation Dimension
-                      </p>
-                      <p className="text-sm text-slate-800 capitalize">{pair.dimension}</p>
-                    </div>
-                  )}
-                  {selectedDiscoverMessage && (pair.a?.id === selectedDiscoverMessage || pair.b?.id === selectedDiscoverMessage) && (
-                    <div className="space-y-2">
-                      {suggestionsLoading ? (
-                        <div className="flex items-center gap-2 text-sm text-slate-600">
-                          <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
-                          Generating suggestions…
-                        </div>
-                      ) : suggestions.length > 0 ? (
-                        <>
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            Continue Exploring
-                          </p>
-                          <div className="grid gap-2 md:grid-cols-3">
-                            {suggestions.map((suggestion, idx) => (
-                              <button
-                                key={idx}
-                                onClick={() => handleSuggestionClick(suggestion)}
-                                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-800 shadow-sm transition hover:border-brand hover:bg-brand-light"
-                              >
-                                {suggestion}
-                              </button>
-                            ))}
+                  {selectedMessageId && (pair.a?.id === selectedMessageId || pair.b?.id === selectedMessageId) && (
+                    <>
+                      <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500 mb-1">
+                          Variation Dimension
+                        </p>
+                        <p className="text-sm text-slate-800 capitalize">{pair.dimension}</p>
+                      </div>
+                      <div className="space-y-2">
+                        {isLoading ? (
+                          <div className="flex items-center gap-2 text-sm text-slate-600">
+                            <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
+                            Generating suggestions…
                           </div>
-                        </>
-                      ) : null}
-                    </div>
+                        ) : pairSuggestions.length > 0 ? (
+                          <>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                              Continue Exploring
+                            </p>
+                            <div className="grid gap-2 md:grid-cols-3">
+                              {pairSuggestions.map((suggestion, idx) => (
+                                <button
+                                  key={idx}
+                                  onClick={() => handleSuggestionClick(suggestion)}
+                                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-800 shadow-sm transition hover:border-brand hover:bg-brand-light"
+                                >
+                                  {suggestion}
+                                </button>
+                              ))}
+                            </div>
+                          </>
+                        ) : null}
+                      </div>
+                    </>
                   )}
                 </div>
               )
@@ -495,6 +885,36 @@ export function TopicDetailPage() {
                   <p className="leading-relaxed">{message.content}</p>
                 )}
               </div>
+              {/* Define stage: Evaluation and reflection prompts - only show if generated in Define stage */}
+              {/* 
+                Show Define UI if:
+                1. Message has generatedStage === 'Define' (new messages with explicit stage), OR
+                2. Message doesn't have generatedStage set (old messages) AND:
+                   - Current topic stage is 'Define' (backwards compatibility)
+                   - Message is not a Discover pair (has no discoverPairId)
+              */}
+              {message.role === 'assistant' &&
+                (message.generatedStage === 'Define' ||
+                  (!message.generatedStage &&
+                    !message.discoverPairId &&
+                    (topic?.stage === 'Define' || stage === 'Define'))) && (
+                <DefineStageUI
+                  messageId={message.id}
+                  topicId={topicId!}
+                  criteria={criteria || []}
+                  evaluations={evaluations}
+                  setEvaluations={setEvaluations}
+                  defineSuggestions={defineSuggestions}
+                  defineSuggestionsLoading={defineSuggestionsLoading}
+                  setDefineSuggestions={setDefineSuggestions}
+                  setDefineSuggestionsLoading={setDefineSuggestionsLoading}
+                  newCriteriaTitle={newCriteriaTitle}
+                  setNewCriteriaTitle={setNewCriteriaTitle}
+                  showNewCriteriaInput={showNewCriteriaInput}
+                  setShowNewCriteriaInput={setShowNewCriteriaInput}
+                  onSuggestionClick={handleSuggestionClick}
+                />
+              )}
             </div>
             )
           })}

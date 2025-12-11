@@ -81,15 +81,25 @@ export async function updateTopicStage(topicId: string, stage: Stage) {
 }
 
 export async function deleteTopic(topicId: string) {
-  // Import here to avoid circular dependency
-  const { removeTopicFromAllCriteria } = await import('./criteria')
-  
-  // Remove topicId from all criteria that reference it
-  await removeTopicFromAllCriteria(topicId)
-  
-  // Delete the topic (messages subcollection will be handled by Firestore rules or cascade delete)
-  const topicRef = doc(topicsCollection, topicId)
-  await deleteDoc(topicRef)
+  try {
+    // Import here to avoid circular dependency
+    const { removeTopicFromAllCriteria } = await import('./criteria')
+    
+    // Remove topicId from all criteria that reference it
+    try {
+      await removeTopicFromAllCriteria(topicId)
+    } catch (criteriaError) {
+      // Log but don't fail if criteria update fails - topic deletion should still proceed
+      console.warn('Failed to remove topic from criteria:', criteriaError)
+    }
+    
+    // Delete the topic (messages subcollection will be handled by Firestore rules or cascade delete)
+    const topicRef = doc(topicsCollection, topicId)
+    await deleteDoc(topicRef)
+  } catch (error) {
+    console.error('Error deleting topic:', error)
+    throw error
+  }
 }
 
 

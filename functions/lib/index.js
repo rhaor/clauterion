@@ -187,6 +187,7 @@ export const createAssistantMessage = onCall({
                     discoverQueryNumber: queryNumber,
                     discoverDimension: variationDimension,
                     discoverPairId: messageRefA.id, // Use A's ID as pair identifier
+                    generatedStage: 'Discover', // Store the stage when message was generated
                 }),
                 messageRefB.set({
                     content: contentB,
@@ -197,6 +198,7 @@ export const createAssistantMessage = onCall({
                     discoverQueryNumber: queryNumber,
                     discoverDimension: variationDimension,
                     discoverPairId: messageRefA.id, // Same pair ID
+                    generatedStage: 'Discover', // Store the stage when message was generated
                 }),
             ]);
             return {
@@ -267,6 +269,7 @@ export const createAssistantMessage = onCall({
             role: 'assistant',
             authorId: 'clauterion-claude',
             createdAt: FieldValue.serverTimestamp(),
+            generatedStage: topicStage, // Store the stage when message was generated
         });
         return {
             messageId: assistantMessageRef.id,
@@ -416,6 +419,152 @@ Return ONLY a JSON array of exactly 3 strings, no other text. Format: ["suggesti
     }
     catch (error) {
         logger.error('generateSuggestions failed', error);
+        const message = error instanceof Error ? error.message : 'Unknown error';
+        if (message.includes('invalid_api_key') || message.includes('Unauthorized')) {
+            throw new HttpsError('permission-denied', 'Claude API key invalid');
+        }
+        if (message.toLowerCase().includes('rate limit')) {
+            throw new HttpsError('resource-exhausted', 'Claude rate limit hit');
+        }
+        if (message.toLowerCase().includes('timeout')) {
+            throw new HttpsError('deadline-exceeded', 'Claude request timed out');
+        }
+        if (error instanceof HttpsError) {
+            throw error;
+        }
+        throw new HttpsError('internal', message);
+    }
+});
+// Schema for generating suggestions with evaluations (Define stage)
+const generateDefineSuggestionsSchema = z.object({
+    topicId: z.string().min(1, 'topicId is required'),
+    messageId: z.string().min(1, 'messageId is required'),
+    evaluations: z.array(z.object({
+        criteriaId: z.string(),
+        criteriaTitle: z.string(),
+        value: z.enum(['meh', 'okay', 'good']),
+    })),
+});
+export const generateDefineSuggestions = onCall({
+    cors: true,
+    region: 'us-central1',
+    secrets: [claudeApiKey],
+}, async (request) => {
+    try {
+        const { auth, data } = request;
+        if (!auth) {
+            throw new HttpsError('unauthenticated', 'Sign in to call this function');
+        }
+        const parsed = generateDefineSuggestionsSchema.safeParse(data);
+        if (!parsed.success) {
+            throw new HttpsError('invalid-argument', parsed.error.message);
+        }
+        const { topicId, messageId, evaluations } = parsed.data;
+        const topicRef = db.collection('topics').doc(topicId);
+        const topicSnapshot = await topicRef.get();
+        if (!topicSnapshot.exists) {
+            throw new HttpsError('not-found', 'Topic not found');
+        }
+        const topicData = topicSnapshot.data();
+        if (topicData?.ownerId !== auth.uid) {
+            throw new HttpsError('permission-denied', 'You do not own this topic');
+        }
+        const topicTitle = topicData?.title ?? 'this topic';
+        const topicDescription = topicData?.description;
+        // Get the message
+        const messageDoc = await topicRef.collection('messages').doc(messageId).get();
+        if (!messageDoc.exists) {
+            throw new HttpsError('not-found', 'Message not found');
+        }
+        const messageData = messageDoc.data();
+        // Build evaluation summary
+        const evaluationSummary = evaluations
+            .map((evaluation) => {
+            const emoji = evaluation.value === 'good' ? '✅' : evaluation.value === 'okay' ? '⚠️' : '❌';
+            return `${emoji} ${evaluation.criteriaTitle}: ${evaluation.value}`;
+        })
+            .join('\n');
+        // Build detailed prompt for suggestions
+        const suggestionsPrompt = `You are helping a user refine their learning approach for "${topicTitle}".${topicDescription ? ` Their learning goals are: ${topicDescription}` : ''}
+
+The user received this response from Claude:
+"${messageData?.content ?? ''}"
+
+They evaluated this response against their criteria:
+${evaluationSummary}
+
+Based on these evaluations and the user's learning goals, generate exactly 3 specific, actionable follow-up questions or prompts that would help them:
+1. Address areas where the response was rated "meh" or "okay"
+2. Build on areas that were rated "good"
+3. Deepen their understanding in ways that align with their goals
+
+Each suggestion should be:
+- Specific and actionable
+- Focused on improving or exploring the evaluated criteria
+- Tailored to help them achieve their learning goals
+- Written as a complete question or prompt they can use directly
+
+Return ONLY a JSON array of exactly 3 strings, no other text. Format: ["suggestion 1", "suggestion 2", "suggestion 3"]`;
+        const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+                'content-type': 'application/json',
+                'x-api-key': claudeApiKey.value(),
+                'anthropic-version': '2023-06-01',
+            },
+            body: JSON.stringify({
+                model: 'claude-sonnet-4-5-20250929',
+                max_tokens: 400,
+                messages: [
+                    {
+                        role: 'user',
+                        content: [{ type: 'text', text: suggestionsPrompt }],
+                    },
+                ],
+            }),
+        });
+        if (!anthropicResponse.ok) {
+            const errorText = await anthropicResponse.text();
+            const status = anthropicResponse.status;
+            if (status === 401 || status === 403) {
+                throw new HttpsError('permission-denied', 'Claude API key invalid or unauthorized');
+            }
+            if (status === 429) {
+                throw new HttpsError('resource-exhausted', 'Claude rate limit hit');
+            }
+            if (status >= 500) {
+                throw new HttpsError('unavailable', 'Claude service unavailable');
+            }
+            throw new HttpsError('internal', `Claude API error (${status}): ${errorText}`);
+        }
+        const responseData = (await anthropicResponse.json());
+        const textPart = responseData.content.find((part) => part.type === 'text');
+        const suggestionsText = textPart && 'text' in textPart && textPart.text ? textPart.text.trim() : '[]';
+        // Parse JSON from response
+        let suggestions = [];
+        try {
+            const jsonMatch = suggestionsText.match(/```(?:json)?\s*(\[[\s\S]*?\])\s*```/) || suggestionsText.match(/(\[[\s\S]*?\])/);
+            const jsonString = jsonMatch ? jsonMatch[1] : suggestionsText;
+            suggestions = JSON.parse(jsonString);
+            if (!Array.isArray(suggestions) || suggestions.length !== 3) {
+                throw new Error('Invalid suggestions format');
+            }
+        }
+        catch (parseError) {
+            logger.error('Failed to parse Define suggestions JSON', { suggestionsText, parseError });
+            // Fallback: return generic suggestions
+            suggestions = [
+                'How can you improve the areas you rated lower?',
+                'What would make this response more helpful for your goals?',
+                'What specific aspects would you like to explore further?',
+            ];
+        }
+        return {
+            suggestions: suggestions.slice(0, 3), // Ensure exactly 3
+        };
+    }
+    catch (error) {
+        logger.error('generateDefineSuggestions failed', error);
         const message = error instanceof Error ? error.message : 'Unknown error';
         if (message.includes('invalid_api_key') || message.includes('Unauthorized')) {
             throw new HttpsError('permission-denied', 'Claude API key invalid');

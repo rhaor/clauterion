@@ -32,17 +32,27 @@ export function TopicsPage() {
     },
   })
 
+  const [deletingTopicId, setDeletingTopicId] = useState<string | null>(null)
+
   const deleteTopicMutation = useMutation({
-    mutationFn: (topicId: string) => deleteTopic(topicId),
+    mutationFn: (topicId: string) => {
+      setDeletingTopicId(topicId)
+      return deleteTopic(topicId)
+    },
     onSuccess: (_, deletedTopicId) => {
       queryClient.invalidateQueries({ queryKey: ['topics', user?.uid] })
       queryClient.invalidateQueries({ queryKey: ['criteria', user?.uid] })
       queryClient.invalidateQueries({ queryKey: ['topic', deletedTopicId] })
+      setDeletingTopicId(null)
       
       // If user is viewing the deleted topic, redirect to topics page
       if (location.pathname.startsWith(`/topics/${deletedTopicId}`)) {
         navigate('/topics', { replace: true })
       }
+    },
+    onError: (error) => {
+      console.error('Failed to delete topic:', error)
+      setDeletingTopicId(null)
     },
   })
 
@@ -106,7 +116,10 @@ export function TopicsPage() {
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation()
-                    deleteTopicMutation.mutate(topic.id)
+                    e.preventDefault()
+                    if (confirm(`Are you sure you want to delete "${topic.title}"?`)) {
+                      deleteTopicMutation.mutate(topic.id)
+                    }
                   }}
                   disabled={deleteTopicMutation.isPending}
                   className="text-sm font-medium text-red-600 transition hover:text-red-700 disabled:opacity-60"
@@ -114,6 +127,13 @@ export function TopicsPage() {
                   {deleteTopicMutation.isPending ? 'Deleting…' : 'Delete'}
                 </button>
               </div>
+              {deleteTopicMutation.error && deletingTopicId === topic.id && (
+                <p className="text-sm text-red-600">
+                  {deleteTopicMutation.error instanceof Error
+                    ? deleteTopicMutation.error.message
+                    : 'Unable to delete topic'}
+                </p>
+              )}
             </div>
           ))}
         </div>
