@@ -6,6 +6,7 @@ import {
   getDocs,
   orderBy,
   query,
+  deleteDoc,
   serverTimestamp,
   updateDoc,
   where,
@@ -90,4 +91,10 @@ export async function updateCriteria(
     updatedAt: serverTimestamp(),
   })
 }
+
+export async function deleteCriteria(criteriaId: string) {
+  const criteriaRef = doc(criteriaCollection, criteriaId)
+  await deleteDoc(criteriaRef)
+}
+
 

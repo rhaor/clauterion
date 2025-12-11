@@ -11,6 +11,8 @@ import {
 import { fetchTopicById, updateTopicStage } from '../services/topics'
 import type { Message } from '../types/message'
 import type { Stage } from '../types/topic'
+import { fetchCriteria } from '../services/criteria'
+import type { Criteria } from '../types/criteria'
 
 export function TopicDetailPage() {
   const { topicId } = useParams<{ topicId: string }>()
@@ -46,6 +48,16 @@ export function TopicDetailPage() {
     queryKey: ['topic', topicId],
     queryFn: () => fetchTopicById(topicId!),
     enabled: Boolean(topicId && user?.uid),
+  })
+
+  const {
+    data: criteria,
+    isLoading: criteriaLoading,
+    error: criteriaError,
+  } = useQuery({
+    queryKey: ['criteria', user?.uid],
+    queryFn: () => fetchCriteria(user!.uid),
+    enabled: Boolean(user?.uid),
   })
 
   const sortedMessages = useMemo(
@@ -138,9 +150,42 @@ export function TopicDetailPage() {
           <div className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-500">
             Criteria
           </div>
-          <p className="text-sm text-slate-800">
-            Capture success criteria, guardrails, or evaluation prompts to judge this run.
-          </p>
+          {criteriaLoading && (
+            <p className="text-sm text-slate-600">Loading criteria…</p>
+          )}
+          {criteriaError && (
+            <p className="text-sm text-red-600">
+              {criteriaError instanceof Error
+                ? criteriaError.message
+                : 'Unable to load criteria'}
+            </p>
+          )}
+          {!criteriaLoading && (
+            <div className="space-y-2 text-sm text-slate-800">
+              {criteria
+                ?.filter((c: Criteria) => c.topicIds.includes(topicId ?? ''))
+                ?.map((c) => (
+                  <div
+                    key={c.id}
+                    className="rounded-lg border border-slate-200 bg-sand-50 px-3 py-2"
+                  >
+                    <div className="font-semibold text-slate-900">
+                      {c.title}
+                    </div>
+                    <p className="text-xs text-slate-600">
+                      Linked to {c.topicIds.length} topic
+                      {c.topicIds.length === 1 ? '' : 's'}
+                    </p>
+                  </div>
+                ))}
+              {criteria?.filter((c) => c.topicIds.includes(topicId ?? ''))
+                .length === 0 && (
+                <p className="text-sm text-slate-600">
+                  No criteria linked to this topic yet.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -161,6 +206,12 @@ export function TopicDetailPage() {
           {sortedMessages.length === 0 && (
             <div className="rounded-lg border border-dashed border-slate-300 bg-sand-50 p-4 text-sm text-slate-600">
               No messages yet. Send one to start.
+            </div>
+          )}
+          {sendMutation.isPending && (
+            <div className="flex items-center gap-2 text-sm text-slate-600">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-brand" />
+              Claude is replying…
             </div>
           )}
           {sortedMessages.map((message) => (

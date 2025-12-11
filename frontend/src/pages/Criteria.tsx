@@ -1,9 +1,14 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../features/auth/AuthProvider'
 import { fetchTopics } from '../services/topics'
-import { createCriteria, fetchCriteria } from '../services/criteria'
+import {
+  createCriteria,
+  fetchCriteria,
+  deleteCriteria,
+  updateCriteria,
+} from '../services/criteria'
 import type { Topic } from '../types/topic'
 import type { Criteria } from '../types/criteria'
 
@@ -14,6 +19,9 @@ export function CriteriaPage() {
   const [title, setTitle] = useState('')
   const [titleError, setTitleError] = useState('')
   const [selectedTopicIds, setSelectedTopicIds] = useState<string[]>([])
+  const [criteriaTopicSelections, setCriteriaTopicSelections] = useState<
+    Record<string, string[]>
+  >({})
 
   const {
     data: topics,
@@ -49,6 +57,26 @@ export function CriteriaPage() {
     },
   })
 
+  const deleteCriteriaMutation = useMutation({
+    mutationFn: (criteriaId: string) => deleteCriteria(criteriaId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['criteria', user?.uid] })
+    },
+  })
+
+  const updateCriteriaMutation = useMutation({
+    mutationFn: ({
+      criteriaId,
+      topicIds,
+    }: {
+      criteriaId: string
+      topicIds: string[]
+    }) => updateCriteria(criteriaId, { topicIds }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['criteria', user?.uid] })
+    },
+  })
+
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault()
     setTitleError('')
@@ -68,6 +96,26 @@ export function CriteriaPage() {
         : [...prev, topicId],
     )
   }
+
+  const toggleCriteriaTopic = (criteriaId: string, topicId: string) => {
+    setCriteriaTopicSelections((prev) => {
+      const current = prev[criteriaId] ?? []
+      const next = current.includes(topicId)
+        ? current.filter((id) => id !== topicId)
+        : [...current, topicId]
+      return { ...prev, [criteriaId]: next }
+    })
+  }
+
+  useEffect(() => {
+    if (criteria) {
+      const nextSelections: Record<string, string[]> = {}
+      criteria.forEach((c) => {
+        nextSelections[c.id] = c.topicIds ?? []
+      })
+      setCriteriaTopicSelections(nextSelections)
+    }
+  }, [criteria])
 
   const topicTitleById = new Map<string, string>(
     (topics ?? []).map((topic) => [topic.id, topic.title]),
@@ -114,10 +162,21 @@ export function CriteriaPage() {
                     {item.topicIds.length === 1 ? '' : 's'}
                   </p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => deleteCriteriaMutation.mutate(item.id)}
+                  disabled={deleteCriteriaMutation.isPending}
+                  className="text-sm font-medium text-red-600 transition hover:text-red-700 disabled:opacity-60"
+                >
+                  {deleteCriteriaMutation.isPending ? 'Deleting…' : 'Delete'}
+                </button>
               </div>
-              {!!item.topicIds.length && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Linked topics
+                </p>
                 <div className="flex flex-wrap gap-2">
-                  {item.topicIds.map((topicId) => (
+                  {(criteriaTopicSelections[item.id] ?? []).map((topicId) => (
                     <span
                       key={topicId}
                       className="rounded-full bg-sand-100 px-3 py-1 text-xs font-medium text-slate-700"
@@ -125,8 +184,73 @@ export function CriteriaPage() {
                       {topicTitleById.get(topicId) ?? 'Unknown topic'}
                     </span>
                   ))}
+                  {(criteriaTopicSelections[item.id] ?? []).length === 0 && (
+                    <span className="text-xs text-slate-600">
+                      No topics linked yet.
+                    </span>
+                  )}
                 </div>
-              )}
+
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Update links
+                  </p>
+                  <div className="flex flex-col gap-2">
+                    {topics?.map((topic: Topic) => (
+                      <label
+                        key={topic.id}
+                        className="flex items-center gap-3 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 shadow-sm"
+                      >
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand/40"
+                          checked={
+                            (criteriaTopicSelections[item.id] ?? []).includes(
+                              topic.id,
+                            )
+                          }
+                          onChange={() =>
+                            toggleCriteriaTopic(item.id, topic.id)
+                          }
+                        />
+                        <span>{topic.title}</span>
+                      </label>
+                    ))}
+                    {!topicsLoading && (topics?.length ?? 0) === 0 && (
+                      <p className="text-xs text-slate-600">
+                        No topics yet. Create a topic to link it.
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      updateCriteriaMutation.mutate({
+                        criteriaId: item.id,
+                        topicIds: criteriaTopicSelections[item.id] ?? [],
+                      })
+                    }
+                    disabled={
+                      updateCriteriaMutation.isPending &&
+                      updateCriteriaMutation.variables?.criteriaId === item.id
+                    }
+                    className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-800 transition hover:bg-sand-50 disabled:opacity-60"
+                  >
+                    {updateCriteriaMutation.isPending &&
+                    updateCriteriaMutation.variables?.criteriaId === item.id
+                      ? 'Saving…'
+                      : 'Save links'}
+                  </button>
+                  {updateCriteriaMutation.error &&
+                    updateCriteriaMutation.variables?.criteriaId === item.id && (
+                      <p className="text-xs text-red-600">
+                        {updateCriteriaMutation.error instanceof Error
+                          ? updateCriteriaMutation.error.message
+                          : 'Unable to update criteria'}
+                      </p>
+                    )}
+                </div>
+              </div>
             </div>
           ))}
         </div>

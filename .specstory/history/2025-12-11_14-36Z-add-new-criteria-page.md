@@ -233,7 +233,13 @@ Additional data:
 
 ```json
 {
-  "codeblockId": "725381c1-899d-409f-8180-4ceb57f5dafd"
+  "codeblockId": "725381c1-899d-409f-8180-4ceb57f5dafd",
+  "reviewData": {
+    "status": "None",
+    "selectedOption": "accept",
+    "isShowingInput": false,
+    "firstTimeReviewMode": false
+  }
 }
 ```
 Status: **completed**
@@ -265,7 +271,13 @@ Additional data:
 
 ```json
 {
-  "codeblockId": "0bffe85a-ff52-4291-af5e-bd4a02da097d"
+  "codeblockId": "0bffe85a-ff52-4291-af5e-bd4a02da097d",
+  "reviewData": {
+    "status": "None",
+    "selectedOption": "accept",
+    "isShowingInput": false,
+    "firstTimeReviewMode": false
+  }
 }
 ```
 Status: **completed**
@@ -299,7 +311,13 @@ Additional data:
 
 ```json
 {
-  "codeblockId": "44f17a81-3f30-43d3-98b4-07c6ab5d7da7"
+  "codeblockId": "44f17a81-3f30-43d3-98b4-07c6ab5d7da7",
+  "reviewData": {
+    "status": "None",
+    "selectedOption": "accept",
+    "isShowingInput": false,
+    "firstTimeReviewMode": false
+  }
 }
 ```
 Status: **completed**
@@ -479,7 +497,13 @@ Additional data:
 
 ```json
 {
-  "codeblockId": "39253839-be94-4562-ae27-bd08a2be2953"
+  "codeblockId": "39253839-be94-4562-ae27-bd08a2be2953",
+  "reviewData": {
+    "status": "None",
+    "selectedOption": "accept",
+    "isShowingInput": false,
+    "firstTimeReviewMode": false
+  }
 }
 ```
 Status: **completed**
@@ -506,7 +530,13 @@ Additional data:
 
 ```json
 {
-  "codeblockId": "518e6faa-df76-4f22-870b-9240daee1286"
+  "codeblockId": "518e6faa-df76-4f22-870b-9240daee1286",
+  "reviewData": {
+    "status": "None",
+    "selectedOption": "accept",
+    "isShowingInput": false,
+    "firstTimeReviewMode": false
+  }
 }
 ```
 Status: **completed**
@@ -540,7 +570,13 @@ Additional data:
 
 ```json
 {
-  "codeblockId": "9b459aa5-66fc-4747-90ff-36aaf43387b6"
+  "codeblockId": "9b459aa5-66fc-4747-90ff-36aaf43387b6",
+  "reviewData": {
+    "status": "None",
+    "selectedOption": "accept",
+    "isShowingInput": false,
+    "firstTimeReviewMode": false
+  }
 }
 ```
 Status: **completed**
@@ -661,7 +697,13 @@ Additional data:
 
 ```json
 {
-  "codeblockId": "b1ffff63-08a0-4dd9-95c7-7ecc35f9f0f3"
+  "codeblockId": "b1ffff63-08a0-4dd9-95c7-7ecc35f9f0f3",
+  "reviewData": {
+    "status": "None",
+    "selectedOption": "accept",
+    "isShowingInput": false,
+    "firstTimeReviewMode": false
+  }
 }
 ```
 Status: **completed**
@@ -673,6 +715,300 @@ Status: **completed**
 ---
 
 Added Firestore composite index for criteria queries (`ownerId` + `createdAt` desc) in `firestore.indexes.json`, mirroring the topics index. Deploy indexes with your usual `firebase deploy --only firestore:indexes` (or via the Firebase console) to apply it.
+
+---
+
+_**User**_
+
+Add the ability to delete a criterion. 
+
+---
+
+_**Agent (model default, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+**Adding delete criteria feature**
+
+I'm implementing a deleteCriteria function in the criteria service and integrating a delete button with mutation handling in the CriteriaPage list, including proper query invalidation and disabled states for user actions.</details></think>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="edit_file_v2">
+<details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+
+Parameters:
+
+```json
+{
+  "relativeWorkspacePath": "/Users/reb/clauterion/frontend/src/services/criteria.ts"
+}
+```
+Additional data:
+
+```json
+{
+  "codeblockId": "c42dec83-ce57-4924-b853-ff1951b07069"
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="edit_file_v2">
+<details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+
+Parameters:
+
+```json
+{
+  "relativeWorkspacePath": "/Users/reb/clauterion/frontend/src/pages/Criteria.tsx"
+}
+```
+Additional data:
+
+```json
+{
+  "codeblockId": "5a2ad824-ee72-4431-a0a8-24da306d6227"
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+**Running lints on changed files**</details></think>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "/Users/reb/clauterion/frontend/src/pages/Criteria.tsx",
+    "/Users/reb/clauterion/frontend/src/services/criteria.ts"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "/Users/reb/clauterion/frontend/src/pages/Criteria.tsx"
+    },
+    {
+      "relativeWorkspacePath": "/Users/reb/clauterion/frontend/src/services/criteria.ts"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+Added delete support for criteria.
+
+- Service: `deleteCriteria` in `frontend/src/services/criteria.ts`.
+- UI: `CriteriaPage` now shows a Delete action per criterion, using a mutation and refreshing the list; button disables during deletion.
+
+If you want confirmation dialogs or optimistic updates, I can add those next.
+
+---
+
+_**User**_
+
+Also update the detailed topic page to show the current criteria that match that particular topic for them. 
+
+---
+
+_**Agent (model default, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+**Preparing to update TopicDetail**
+
+I'm planning to read the TopicDetail file to understand what changes it needs.</details></think>
+
+---
+
+<tool-use data-tool-type="read" data-tool-name="read_file_v2">
+<details><summary>Tool use: **read_file_v2** • Read file: /Users/reb/clauterion/frontend/src/pages/TopicDetail.tsx</summary>
+
+</details>
+</tool-use>
+
+---
+
+<think><details><summary>Thought Process</summary>
+**Planning criteria fetching**
+
+I'm deciding to reuse the existing criteria fetch by owner and then filter criteria client-side by topicId, adding a useQuery for criteria with error handling and updating the UI accordingly.</details></think>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="edit_file_v2">
+<details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+
+Parameters:
+
+```json
+{
+  "relativeWorkspacePath": "/Users/reb/clauterion/frontend/src/pages/TopicDetail.tsx"
+}
+```
+Additional data:
+
+```json
+{
+  "codeblockId": "68ba417e-3cd4-46a8-8d8a-15ff299d2005"
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "/Users/reb/clauterion/frontend/src/pages/TopicDetail.tsx"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "/Users/reb/clauterion/frontend/src/pages/TopicDetail.tsx"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+Topic detail now shows linked criteria for the topic.
+
+- `TopicDetailPage` fetches criteria and lists those whose `topicIds` include the current topic. Loading/error states included; shows a friendly empty message when none are linked.
+- Imports updated to use criteria service/types.
+
+Files touched: `frontend/src/pages/TopicDetail.tsx`.
+
+---
+
+_**User**_
+
+Add ability to add or remove topics from a criteria. 
+
+---
+
+_**Agent (model default, mode Agent)**_
+
+<think><details><summary>Thought Process</summary>
+**Planning criteria topic editing UI**
+
+Planning to add per-criteria inline multi-select checkboxes for topic assignments with a save button, managing local state per criteria and syncing with the updateCriteria mutation while tracking loading and error states for precise UI feedback.</details></think>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="edit_file_v2">
+<details>
+<summary>Tool use: **edit_file_v2**</summary>
+
+
+Parameters:
+
+```json
+{
+  "relativeWorkspacePath": "/Users/reb/clauterion/frontend/src/pages/Criteria.tsx"
+}
+```
+Additional data:
+
+```json
+{
+  "codeblockId": "91242667-4994-4049-992a-264b70bed2a6"
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
+
+---
+
+<tool-use data-tool-type="unknown" data-tool-name="read_lints">
+<details>
+<summary>Tool use: **read_lints**</summary>
+
+
+Parameters:
+
+```json
+{
+  "paths": [
+    "/Users/reb/clauterion/frontend/src/pages/Criteria.tsx"
+  ]
+}
+```
+Result:
+
+```json
+{
+  "linterErrorsByFile": [
+    {
+      "relativeWorkspacePath": "/Users/reb/clauterion/frontend/src/pages/Criteria.tsx"
+    }
+  ]
+}
+```
+Status: **completed**
+
+
+</details>
+</tool-use>
 
 ---
 
