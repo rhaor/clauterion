@@ -1,10 +1,13 @@
+import { lazy } from 'react'
 import { Navigate, Outlet, createBrowserRouter } from 'react-router-dom'
 import { ProtectedRoute } from '../features/auth/ProtectedRoute'
-import { LoginPage } from '../pages/Login'
-import { TopicDetailPage } from '../pages/TopicDetail'
-import { TopicsPage } from '../pages/Topics'
-import { CriteriaPage } from '../pages/Criteria'
 import { AppShell } from '../components/layout/AppShell'
+
+// Lazy load pages for code splitting
+const LoginPage = lazy(() => import('../pages/Login').then(m => ({ default: m.LoginPage })))
+const TopicDetailPage = lazy(() => import('../pages/TopicDetail').then(m => ({ default: m.TopicDetailPage })))
+const TopicsPage = lazy(() => import('../pages/Topics').then(m => ({ default: m.TopicsPage })))
+const CriteriaPage = lazy(() => import('../pages/Criteria').then(m => ({ default: m.CriteriaPage })))
 
 export const router = createBrowserRouter([
   {
